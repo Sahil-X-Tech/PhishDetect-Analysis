@@ -30,10 +30,10 @@ def about():
     """About page with project information"""
     return render_template('about.html')
 
-@app.route('/contact')
-def contact():
-    """Contact page with form"""
-    return render_template('contact.html')
+@app.route('/security-guide')
+def security_guide():
+    """Security guide page with phishing prevention tips"""
+    return render_template('security-guide.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():

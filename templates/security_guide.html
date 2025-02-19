@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-shield-alt me-2"></i>Security Guide: Protect Yourself from Phishing
+                </h2>
+
+                <!-- Common Phishing Indicators -->
+                <div class="section mb-5">
+                    <h3 class="mb-4"><i class="fas fa-exclamation-triangle me-2"></i>Common Phishing Indicators</h3>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="feature-card p-3">
+                                <h5><i class="fas fa-link me-2"></i>Suspicious URLs</h5>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2">• Misspelled domain names (e.g., 'g00gle' instead of 'google')</li>
+                                    <li class="mb-2">• Unusual TLDs (.tk, .ml, etc.)</li>
+                                    <li class="mb-2">• IP addresses instead of domain names</li>
+                                    <li>• Extremely long URLs with random characters</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="feature-card p-3">
+                                <h5><i class="fas fa-envelope me-2"></i>Content Red Flags</h5>
+                                <ul class="list-unstyled">
+                                    <li class="mb-2">• Urgent action required messages</li>
+                                    <li class="mb-2">• Requests for sensitive information</li>
+                                    <li class="mb-2">• Poor grammar or spelling</li>
+                                    <li>• Offers that seem too good to be true</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best Practices -->
+                <div class="section mb-5">
+                    <h3 class="mb-4"><i class="fas fa-check-circle me-2"></i>Best Practices</h3>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="feature-card p-3">
+                                <h5><i class="fas fa-lock me-2"></i>Verify the Source</h5>
+                                <p>Always check the sender's email address or website URL carefully. Don't trust display names alone.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-card p-3">
+                                <h5><i class="fas fa-shield-virus me-2"></i>Use Protection</h5>
+                                <p>Keep your software updated, use antivirus protection, and enable two-factor authentication when possible.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="feature-card p-3">
+                                <h5><i class="fas fa-user-shield me-2"></i>Be Cautious</h5>
+                                <p>Never share sensitive information through email or unexpected pop-ups. Legitimate services won't ask for this.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-world Examples -->
+                <div class="section mb-5">
+                    <h3 class="mb-4"><i class="fas fa-lightbulb me-2"></i>Common Phishing Scenarios</h3>
+                    <div class="accordion" id="phishingExamples">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#example1">
+                                    Banking Scams
+                                </button>
+                            </h2>
+                            <div id="example1" class="accordion-collapse collapse show" data-bs-parent="#phishingExamples">
+                                <div class="accordion-body">
+                                    <p>Emails claiming your account has been locked or unauthorized access detected. They often include:</p>
+                                    <ul>
+                                        <li>Urgent calls to action</li>
+                                        <li>Links to fake login pages</li>
+                                        <li>Requests for account verification</li>
+                                    </ul>
+                                    <div class="alert alert-info">
+                                        <strong>Tip:</strong> Always access your bank directly through their official website, never through email links.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#example2">
+                                    Social Media Impersonation
+                                </button>
+                            </h2>
+                            <div id="example2" class="accordion-collapse collapse" data-bs-parent="#phishingExamples">
+                                <div class="accordion-body">
+                                    <p>Fake profiles mimicking friends or famous people, often involving:</p>
+                                    <ul>
+                                        <li>Friend requests from existing contacts</li>
+                                        <li>Messages about winning prizes</li>
+                                        <li>Requests to verify account information</li>
+                                    </ul>
+                                    <div class="alert alert-info">
+                                        <strong>Tip:</strong> Verify friend requests through other means and be wary of unexpected messages from friends.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Response Guide -->
+                <div class="section">
+                    <h3 class="mb-4"><i class="fas fa-first-aid me-2"></i>If You Suspect You've Been Phished</h3>
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">Take These Steps Immediately:</h5>
+                        <ol class="mb-0">
+                            <li>Change passwords for any potentially compromised accounts</li>
+                            <li>Contact your bank if financial information was involved</li>
+                            <li>Report the incident to relevant authorities</li>
+                            <li>Monitor your accounts for suspicious activity</li>
+                            <li>Use our URL checker tool to verify suspicious links</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
