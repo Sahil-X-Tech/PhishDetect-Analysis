@@ -33,7 +33,7 @@ def about():
 @app.route('/security-guide')
 def security_guide():
     """Security guide page with phishing prevention tips"""
-    return render_template('security-guide.html')
+    return render_template('security_guide.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
