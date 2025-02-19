@@ -1,0 +1,61 @@
+/* Custom styles to complement Bootstrap dark theme */
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: var(--bs-dark);
+}
+
+.card-title {
+    color: var(--bs-primary);
+}
+
+#resultIndicator {
+    padding: 1rem;
+}
+
+#confidenceChart {
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Metric indicators */
+.metric-row {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.metric-row:last-child {
+    border-bottom: none;
+}
+
+/* Custom scrollbar for better visibility in dark theme */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bs-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bs-secondary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-primary);
+}

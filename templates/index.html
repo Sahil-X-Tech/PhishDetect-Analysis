@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-shield-alt me-2"></i>URL Security Analysis
+                </h2>
+                <form id="urlForm" class="mb-4">
+                    <div class="input-group">
+                        <input type="url" class="form-control" id="urlInput" 
+                               placeholder="Enter URL to analyze" required>
+                        <button class="btn btn-primary" type="submit" id="analyzeBtn">
+                            <i class="fas fa-search me-2"></i>Analyze
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="text-center d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="d-none">
+            <!-- Main Result Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div id="resultIndicator" class="text-center mb-3">
+                                <i class="fas fa-circle-check text-success fa-4x"></i>
+                                <h3 class="mt-2" id="resultText">Safe</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <canvas id="confidenceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Analysis -->
+            <div class="row">
+                <!-- Security Metrics -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-lock me-2"></i>Security Metrics
+                            </h5>
+                            <div id="securityMetrics"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- URL Structure -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-sitemap me-2"></i>URL Structure
+                            </h5>
+                            <div id="urlStructure"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suspicious Patterns -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Suspicious Patterns
+                            </h5>
+                            <div id="suspiciousPatterns"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
+    </div>
+</div>
+{% endblock %}
