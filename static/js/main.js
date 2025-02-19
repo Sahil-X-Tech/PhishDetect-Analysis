@@ -59,28 +59,28 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update confidence chart
         updateConfidenceChart(data);
 
-        // Update metrics with enhanced display
+        // Update metrics with enhanced display and better thresholds
         updateMetricsSection('securityMetrics', data.security_metrics, {
-            'HTTPS': 'Uses secure HTTPS protocol',
-            'Special Characters': 'Number of special characters in URL',
-            'Suspicious Keywords': 'Contains known phishing-related words',
-            'Suspicious TLD': 'Uses potentially suspicious top-level domain'
+            'HTTPS': 'Uses secure HTTPS protocol - Recommended for secure websites',
+            'Special Characters': 'Number of special characters in URL - High numbers may indicate suspicious activity',
+            'Suspicious Keywords': 'Contains words commonly used in phishing attempts',
+            'Suspicious TLD': 'Uses an uncommon or potentially risky top-level domain'
         });
 
         updateMetricsSection('urlStructure', data.url_structure, {
-            'URL Length': 'Total length of the URL',
-            'Domain Length': 'Length of the domain name',
-            'Path Length': 'Length of the URL path',
-            'Directory Depth': 'Number of directory levels',
-            'Query Parameters': 'Number of query parameters'
+            'URL Length': 'Total length of the URL - Very long URLs may be suspicious',
+            'Domain Length': 'Length of the domain name - Extremely long domain names are unusual',
+            'Path Length': 'Length of the URL path after the domain',
+            'Directory Depth': 'Number of subdirectories in the URL',
+            'Query Parameters': 'Number of parameters in the URL'
         });
 
         updateMetricsSection('suspiciousPatterns', data.suspicious_patterns, {
-            'IP Address': 'URL contains an IP address instead of domain name',
-            'Misspelled Domain': 'Domain name appears to be misspelled',
-            'Shortened URL': 'Uses a URL shortening service',
-            'At Symbol': 'Contains @ symbol in URL',
-            'Multiple Subdomains': 'Has unusually many subdomains'
+            'IP Address': 'Using IP address instead of domain name (suspicious)',
+            'Misspelled Domain': 'Domain name appears to be misspelling a known brand',
+            'Shortened URL': 'URL has been shortened, hiding its true destination',
+            'At Symbol': 'Contains @ symbol which can be used to obscure the true destination',
+            'Multiple Subdomains': 'Has an unusual number of subdomains'
         });
     }
 
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: ['Safe', 'Phishing'],
                 datasets: [{
-                    data: [data.probability_safe, data.probability_phishing],
+                    data: [data.probability_safe * 100, data.probability_phishing * 100],
                     backgroundColor: ['#198754', '#dc3545'],
                     borderWidth: 0
                 }]
@@ -123,16 +123,34 @@ document.addEventListener('DOMContentLoaded', function() {
             const row = document.createElement('div');
             row.className = 'mb-2';
 
-            // Format the value based on type
+            // Improved value formatting and thresholds
             let displayValue, displayClass;
             if (typeof value === 'boolean') {
-                displayValue = value ? 
-                    '<i class="fas fa-check-circle text-success"></i>' : 
-                    '<i class="fas fa-times-circle text-danger"></i>';
-                displayClass = value ? 'text-success' : 'text-danger';
+                if (key === 'HTTPS') {
+                    // Reverse the logic for HTTPS - true is good
+                    displayValue = value ? 
+                        '<i class="fas fa-check-circle text-success"></i>' : 
+                        '<i class="fas fa-times-circle text-danger"></i>';
+                    displayClass = value ? 'text-success' : 'text-danger';
+                } else {
+                    // For other boolean values, true usually indicates a risk
+                    displayValue = value ? 
+                        '<i class="fas fa-times-circle text-danger"></i>' : 
+                        '<i class="fas fa-check-circle text-success"></i>';
+                    displayClass = value ? 'text-danger' : 'text-success';
+                }
             } else if (typeof value === 'number') {
                 displayValue = value;
-                displayClass = value > 5 ? 'text-warning' : 'text-success';
+                // Adjust thresholds based on the metric
+                if (key === 'URL Length') {
+                    displayClass = value > 100 ? 'text-warning' : 'text-success';
+                } else if (key === 'Special Characters') {
+                    displayClass = value > 3 ? 'text-warning' : 'text-success';
+                } else if (key === 'Directory Depth') {
+                    displayClass = value > 4 ? 'text-warning' : 'text-success';
+                } else {
+                    displayClass = value > 2 ? 'text-warning' : 'text-success';
+                }
             } else {
                 displayValue = value;
                 displayClass = 'text-info';
