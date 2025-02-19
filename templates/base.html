@@ -31,13 +31,33 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
-                            <i class="fas fa-info-circle me-1"></i>About
+                        <a class="nav-link {% if request.endpoint == 'statistics' %}active{% endif %}" href="{{ url_for('statistics') }}">
+                            <i class="fas fa-chart-line me-1"></i>Statistics
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'security_guide' %}active{% endif %}" href="{{ url_for('security_guide') }}">
                             <i class="fas fa-shield-alt me-1"></i>Security Guide
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'documentation' %}active{% endif %}" href="{{ url_for('documentation') }}">
+                            <i class="fas fa-book me-1"></i>Docs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'faq' %}active{% endif %}" href="{{ url_for('faq') }}">
+                            <i class="fas fa-question-circle me-1"></i>FAQ
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'report' %}active{% endif %}" href="{{ url_for('report') }}">
+                            <i class="fas fa-flag me-1"></i>Report
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
+                            <i class="fas fa-info-circle me-1"></i>About
                         </a>
                     </li>
                 </ul>

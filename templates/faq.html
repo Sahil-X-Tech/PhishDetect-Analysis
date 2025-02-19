@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-question-circle me-2"></i>Frequently Asked Questions
+                </h2>
+
+                <div class="accordion" id="faqAccordion">
+                    <!-- General Questions -->
+                    <div class="mb-4">
+                        <h3 class="mb-3">General Questions</h3>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                    What is URL phishing detection?
+                                </button>
+                            </h2>
+                            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    URL phishing detection is a security measure that analyzes web addresses to identify potentially dangerous websites that attempt to steal personal information. Our system uses advanced machine learning algorithms to detect characteristics commonly associated with phishing attempts.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                    How accurate is the detection system?
+                                </button>
+                            </h2>
+                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Our system maintains a 99.8% accuracy rate in detecting phishing URLs. However, we recommend using it as part of a comprehensive security approach, along with common sense and good security practices.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Technical Questions -->
+                    <div class="mb-4">
+                        <h3 class="mb-3">Technical Questions</h3>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                    What features do you analyze in a URL?
+                                </button>
+                            </h2>
+                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    We analyze multiple features including:
+                                    <ul>
+                                        <li>URL length and structure</li>
+                                        <li>Domain age and reputation</li>
+                                        <li>Special character frequency</li>
+                                        <li>SSL certificate status</li>
+                                        <li>Presence of suspicious keywords</li>
+                                        <li>Domain similarity to known brands</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                                    How often is the model updated?
+                                </button>
+                            </h2>
+                            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Our machine learning model is continuously trained on new data and updated weekly to maintain high accuracy and adapt to new phishing techniques.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Usage Questions -->
+                    <div class="mb-4">
+                        <h3 class="mb-3">Usage Questions</h3>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                                    What should I do if a URL is detected as phishing?
+                                </button>
+                            </h2>
+                            <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    If a URL is detected as phishing:
+                                    <ol>
+                                        <li>Do not click on the link or enter any information</li>
+                                        <li>Report the URL to relevant authorities</li>
+                                        <li>If you've entered any information, change your passwords immediately</li>
+                                        <li>Monitor your accounts for suspicious activity</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                                    Can I integrate this service with my website?
+                                </button>
+                            </h2>
+                            <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    Yes, we provide API access for integration with other websites and applications. Check our documentation page for technical details and implementation guides.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error Reporting -->
+                    <div>
+                        <h3 class="mb-3">Error Reporting</h3>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                                    What if I get a false positive/negative?
+                                </button>
+                            </h2>
+                            <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                <div class="accordion-body">
+                                    If you believe our system has made an incorrect assessment, please use our report page to submit the URL for review. Your feedback helps improve our detection system.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

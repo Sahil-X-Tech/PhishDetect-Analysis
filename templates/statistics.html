@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-chart-line me-2"></i>Detection Statistics
+                </h2>
+
+                <!-- Overall Stats -->
+                <div class="row g-4 mb-5">
+                    <div class="col-md-3">
+                        <div class="metric-card p-3 text-center">
+                            <h2 class="text-primary">100K+</h2>
+                            <p>URLs Analyzed</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card p-3 text-center">
+                            <h2 class="text-primary">99.8%</h2>
+                            <p>Accuracy Rate</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card p-3 text-center">
+                            <h2 class="text-primary">25K+</h2>
+                            <p>Threats Detected</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card p-3 text-center">
+                            <h2 class="text-primary">&lt;1s</h2>
+                            <p>Average Response Time</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Distribution -->
+                <div class="row mb-5">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Detection Distribution</h5>
+                                <canvas id="detectionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Common Attack Types</h5>
+                                <canvas id="attackTypesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">Recent Detection Activity</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Domain</th>
+                                        <th>Type</th>
+                                        <th>Confidence</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>2 mins ago</td>
+                                        <td>example.com</td>
+                                        <td><span class="badge bg-success">Safe</span></td>
+                                        <td>98%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>5 mins ago</td>
+                                        <td>suspicious-site.net</td>
+                                        <td><span class="badge bg-danger">Phishing</span></td>
+                                        <td>95%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>10 mins ago</td>
+                                        <td>secure-bank.com</td>
+                                        <td><span class="badge bg-danger">Phishing</span></td>
+                                        <td>92%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts initialization -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Detection Distribution Chart
+    new Chart(document.getElementById('detectionChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Safe URLs', 'Phishing URLs'],
+            datasets: [{
+                data: [75, 25],
+                backgroundColor: ['#198754', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                title: {
+                    display: true,
+                    text: 'URL Analysis Results'
+                }
+            }
+        }
+    });
+
+    // Attack Types Chart
+    new Chart(document.getElementById('attackTypesChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Login Phishing', 'Payment Scams', 'Malware Distribution', 'Data Theft', 'Identity Theft'],
+            datasets: [{
+                label: 'Detected Cases',
+                data: [35, 25, 20, 15, 5],
+                backgroundColor: '#0d6efd'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

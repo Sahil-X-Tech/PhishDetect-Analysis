@@ -33,7 +33,27 @@ def about():
 @app.route('/security-guide')
 def security_guide():
     """Security guide page with phishing prevention tips"""
-    return render_template('security_guide.html')
+    return render_template('security-guide.html')
+
+@app.route('/statistics')
+def statistics():
+    """Statistics page showing detection metrics"""
+    return render_template('statistics.html')
+
+@app.route('/documentation')
+def documentation():
+    """Documentation page with technical details"""
+    return render_template('documentation.html')
+
+@app.route('/faq')
+def faq():
+    """FAQ page with common questions"""
+    return render_template('faq.html')
+
+@app.route('/report')
+def report():
+    """Report page for false positives/negatives"""
+    return render_template('report.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
@@ -82,7 +102,7 @@ def analyze_url():
         }
 
         response = {
-            'prediction': result['prediction'],  # 'phishing' (0) or 'safe' (1)
+            'prediction': result['prediction'],
             'confidence': round(result['confidence'] * 100, 2),
             'probability_phishing': round(result['probability_phishing'] * 100, 2),
             'probability_safe': round(result['probability_safe'] * 100, 2),

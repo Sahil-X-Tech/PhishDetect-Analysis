@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-flag me-2"></i>Report an Issue
+                </h2>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="alert alert-info">
+                            <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Why Report?</h5>
+                            <p class="mb-0">Your reports help us improve our detection system. We investigate all reports to:
+                                <ul class="mb-0">
+                                    <li>Improve detection accuracy</li>
+                                    <li>Update our ML models</li>
+                                    <li>Identify new phishing patterns</li>
+                                    <li>Protect other users</li>
+                                </ul>
+                            </p>
+                        </div>
+
+                        <div class="card mt-4">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-lightbulb me-2"></i>Report Types</h5>
+                                <div class="mb-3">
+                                    <h6>False Positive</h6>
+                                    <p class="text-muted">When a legitimate URL is marked as phishing.</p>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>False Negative</h6>
+                                    <p class="text-muted">When a phishing URL is marked as safe.</p>
+                                </div>
+                                <div>
+                                    <h6>Other Issues</h6>
+                                    <p class="text-muted">Technical problems or suggestions.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="contact-form">
+                            <form id="reportForm">
+                                <div class="mb-3">
+                                    <label for="reportType" class="form-label">Report Type</label>
+                                    <select class="form-select" id="reportType" required>
+                                        <option value="">Select issue type</option>
+                                        <option value="false_positive">False Positive</option>
+                                        <option value="false_negative">False Negative</option>
+                                        <option value="technical">Technical Issue</option>
+                                        <option value="suggestion">Suggestion</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="reportUrl" class="form-label">URL</label>
+                                    <input type="url" class="form-control" id="reportUrl" placeholder="Enter the URL" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="expectedResult" class="form-label">Expected Result</label>
+                                    <select class="form-select" id="expectedResult" required>
+                                        <option value="">Select expected result</option>
+                                        <option value="safe">Safe</option>
+                                        <option value="phishing">Phishing</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="actualResult" class="form-label">Actual Result</label>
+                                    <select class="form-select" id="actualResult" required>
+                                        <option value="">Select actual result</option>
+                                        <option value="safe">Safe</option>
+                                        <option value="phishing">Phishing</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Additional Details</label>
+                                    <textarea class="form-control" id="description" rows="4" placeholder="Please provide any additional information that might help us investigate"></textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email (optional)</label>
+                                    <input type="email" class="form-control" id="email" placeholder="Enter your email for updates">
+                                    <div class="form-text">We'll only use this to update you about your report.</div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Report
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    // Here you would typically send the form data to your backend
+    alert('Thank you for your report. We will investigate and take appropriate action.');
+    this.reset();
+});
+</script>
+{% endblock %}
