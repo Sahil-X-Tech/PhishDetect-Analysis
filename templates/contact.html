@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-envelope me-2"></i>Contact Us
+                </h2>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <h4><i class="fas fa-comments me-2"></i>Get in Touch</h4>
+                        <p>Have questions about our phishing detection system? Want to report a bug or suggest a feature? We'd love to hear from you!</p>
+                        
+                        <div class="mt-4">
+                            <h5><i class="fas fa-map-marker-alt me-2"></i>Location</h5>
+                            <p>Cybersecurity Innovation Center<br>123 Tech Street<br>Silicon Valley, CA 94025</p>
+                        </div>
+
+                        <div class="mt-4">
+                            <h5><i class="fas fa-envelope me-2"></i>Email</h5>
+                            <p>support@phishingdetector.com</p>
+                        </div>
+
+                        <div class="mt-4">
+                            <h5><i class="fas fa-clock me-2"></i>Hours</h5>
+                            <p>Monday - Friday: 9:00 AM - 6:00 PM PST</p>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="contact-form">
+                            <h4 class="mb-4"><i class="fas fa-paper-plane me-2"></i>Send us a Message</h4>
+                            <form id="contactForm">
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">Name</label>
+                                    <input type="text" class="form-control" id="name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="subject" class="form-label">Subject</label>
+                                    <select class="form-select" id="subject" required>
+                                        <option value="">Select a subject</option>
+                                        <option value="general">General Inquiry</option>
+                                        <option value="technical">Technical Support</option>
+                                        <option value="feature">Feature Request</option>
+                                        <option value="bug">Bug Report</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="message" class="form-label">Message</label>
+                                    <textarea class="form-control" id="message" rows="5" required></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Send Message
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -32,6 +32,41 @@ main {
     height: 3rem;
 }
 
+/* Feature cards */
+.feature-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    height: 100%;
+    transition: transform 0.2s;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Metric cards */
+.metric-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+}
+
+.metric-card h2 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Contact form */
+.contact-form {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2rem;
+    border-radius: 8px;
+}
+
 /* Metric indicators */
 .metric-row {
     padding: 0.5rem 0;

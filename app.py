@@ -22,10 +22,22 @@ except Exception as e:
 
 @app.route('/')
 def index():
+    """Home page with URL analysis functionality"""
     return render_template('index.html')
+
+@app.route('/about')
+def about():
+    """About page with project information"""
+    return render_template('about.html')
+
+@app.route('/contact')
+def contact():
+    """Contact page with form"""
+    return render_template('contact.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
+    """Analyze URL for phishing detection"""
     if detector is None:
         return jsonify({'error': 'Model not initialized. Please try again later.'}), 500
 
