@@ -14,7 +14,7 @@ app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
 # Initialize and load the model
 detector = PhishingURLDetector()
 try:
-    detector.load_models('phishing_detector.joblib')
+    detector.load_models('attached_assets/phishing_detector.joblib')
     logger.info("Model loaded successfully")
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
