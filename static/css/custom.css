@@ -1,5 +1,9 @@
 /* Custom styles to complement Bootstrap dark theme */
 body {
+    background-image:url("AIWALLPAPER.jpg");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
