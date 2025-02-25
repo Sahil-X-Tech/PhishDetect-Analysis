@@ -20,4 +20,5 @@ dependencies = [
     "validators>=0.34.0",
     "flask-wtf>=1.2.2",
     "sqlalchemy>=2.0.38",
+    "werkzeug>=3.1.3",
 ]

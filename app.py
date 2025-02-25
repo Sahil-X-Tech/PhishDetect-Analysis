@@ -37,10 +37,10 @@ login_manager.login_view = 'login'
 def load_user(id):
     return User.query.get(int(id))
 
-# Initialize and load the model
-detector = PhishingURLDetector()
+# Update the model loading section
 try:
-    detector.load_models('attached_assets/phishing_detector.joblib')
+    detector = PhishingURLDetector()
+    detector.load_models('phishing_detector.joblib')  # Changed from 'attached_assets/phishing_detector.joblib'
     logger.info("Model loaded successfully")
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
@@ -144,31 +144,21 @@ def view_reports():
 @login_required
 def analyze_url():
     """Analyze URL for phishing detection"""
-    if detector is None:
-        return jsonify({'error': 'Model not initialized. Please try again later.'}), 500
-
-    url = request.form.get('url', '').strip()
-
-    # Validate URL
-    if not url:
-        return jsonify({'error': 'Please enter a URL'}), 400
-
-    if not validators.url(url):
-        return jsonify({'error': 'Invalid URL format'}), 400
-
     try:
+        if detector is None:
+            return jsonify({'error': 'Model not initialized. Please try again later.'}), 500
+
+        url = request.form.get('url', '').strip()
+
+        # Validate URL
+        if not url:
+            return jsonify({'error': 'Please enter a URL'}), 400
+
+        if not validators.url(url):
+            return jsonify({'error': 'Invalid URL format'}), 400
+
         # Get prediction
         result = detector.predict(url)
-
-        # Save report to database
-        report = Report(
-            url=url,
-            is_phishing=result['prediction'] == 'phishing',
-            confidence_score=result['confidence'],
-            reporter_email=current_user.email
-        )
-        db.session.add(report)
-        db.session.commit()
 
         # Extract features for visualization
         features = detector.feature_extractor.extract_features(url)
@@ -196,6 +186,22 @@ def analyze_url():
             'At Symbol': bool(features['has_at_symbol']),
             'Multiple Subdomains': features['subdomain_count'] > 1
         }
+
+        # Save report to database
+        try:
+            report = Report(
+                url=url,
+                is_phishing=result['prediction'] == 'phishing',
+                confidence_score=result['confidence'],
+                reporter_email=current_user.email,
+                report_type='automatic',
+                actual_result=result['prediction']
+            )
+            db.session.add(report)
+            db.session.commit()
+        except Exception as db_error:
+            logger.error(f"Error saving report to database: {str(db_error)}")
+            # Continue with the analysis even if saving to DB fails
 
         response = {
             'prediction': result['prediction'],
