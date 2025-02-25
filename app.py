@@ -240,10 +240,10 @@ def submit_report():
         )
         db.session.add(report)
         db.session.commit()
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'message': 'Report submitted successfully'})
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
-        return jsonify({'error': 'Error submitting report. Please try again.'}), 500
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 def create_admin_user():
     """Create admin user if it doesn't exist"""

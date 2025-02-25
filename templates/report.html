@@ -100,9 +100,17 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
 
     fetch('/submit_report', {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             document.getElementById('successAlert').classList.remove('d-none');
@@ -118,7 +126,7 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
     })
     .catch(error => {
         const errorAlert = document.getElementById('errorAlert');
-        errorAlert.textContent = error.message;
+        errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
         errorAlert.classList.remove('d-none');
     });
 });
