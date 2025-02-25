@@ -1,28 +1,41 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import logging
 from phishing_detector import PhishingURLDetector
 import validators
 from datetime import datetime
 from database import db
-from models import Report
+from models import Report, User
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_wtf.csrf import CSRFProtect
+from werkzeug.security import generate_password_hash
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+app.secret_key = os.environ.get("SESSION_SECRET")
 
 # Configure SQLAlchemy
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///phishing.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
-# initialize the app with the extension
+# initialize the app with the extension, flask-sqlalchemy >= 3.0.x
 db.init_app(app)
+csrf = CSRFProtect(app)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(id):
+    return User.query.get(int(id))
 
 # Initialize and load the model
 detector = PhishingURLDetector()
@@ -33,7 +46,49 @@ except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     detector = None
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            login_user(user, remember=request.form.get('remember', False))
+            return redirect(url_for('index'))
+
+        flash('Invalid email or password')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered')
+            return render_template('register.html')
+
+        user = User(username=username, email=email)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        flash('Registration successful! Please login.')
+        return redirect(url_for('login'))
+
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
@@ -49,6 +104,7 @@ def security_guide():
     return render_template('security-guide.html')
 
 @app.route('/statistics')
+@login_required
 def statistics():
     """Statistics page showing detection metrics"""
     return render_template('statistics.html')
@@ -64,21 +120,28 @@ def faq():
     return render_template('faq.html')
 
 @app.route('/report')
+@login_required
 def report():
     """Report page for false positives/negatives"""
     return render_template('report.html')
 
 @app.route('/reports')
+@login_required
 def view_reports():
     """View all submitted reports"""
     try:
-        reports = Report.query.order_by(Report.reported_at.desc()).all()
+        # If user is admin, show all reports, otherwise show only their reports
+        if current_user.is_admin:
+            reports = Report.query.order_by(Report.reported_at.desc()).all()
+        else:
+            reports = Report.query.filter_by(reporter_email=current_user.email).order_by(Report.reported_at.desc()).all()
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")
         return render_template('reports.html', reports=[], error="Error fetching reports")
 
 @app.route('/analyze', methods=['POST'])
+@login_required
 def analyze_url():
     """Analyze URL for phishing detection"""
     if detector is None:
@@ -101,7 +164,8 @@ def analyze_url():
         report = Report(
             url=url,
             is_phishing=result['prediction'] == 'phishing',
-            confidence_score=result['confidence']
+            confidence_score=result['confidence'],
+            reporter_email=current_user.email
         )
         db.session.add(report)
         db.session.commit()
@@ -153,6 +217,7 @@ def analyze_url():
         return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
 
 @app.route('/submit_report', methods=['POST'])
+@login_required
 def submit_report():
     """Submit a new report"""
     try:
@@ -161,7 +226,7 @@ def submit_report():
             url=data.get('url'),
             is_phishing=data.get('actualResult') == 'phishing',
             confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email=data.get('email'),
+            reporter_email=current_user.email,
             report_type=data.get('reportType'),
             description=data.get('description'),
             expected_result=data.get('expectedResult'),
@@ -174,7 +239,22 @@ def submit_report():
         logger.error(f"Error submitting report: {str(e)}")
         return jsonify({'error': 'Error submitting report. Please try again.'}), 500
 
+def create_admin_user():
+    """Create admin user if it doesn't exist"""
+    admin = User.query.filter_by(email='admin@phishingdetector.com').first()
+    if not admin:
+        admin = User(
+            username='admin',
+            email='admin@phishingdetector.com',
+            is_admin=True
+        )
+        admin.set_password('Sahilkhan123')
+        db.session.add(admin)
+        db.session.commit()
+        logger.info("Admin user created successfully")
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        create_admin_user()
     app.run(host='0.0.0.0', port=5000, debug=True)

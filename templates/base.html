@@ -24,7 +24,8 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
                             <i class="fas fa-home me-1"></i>Home
@@ -40,6 +41,7 @@
                             <i class="fas fa-chart-line me-1"></i>Statistics
                         </a>
                     </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'security_guide' %}active{% endif %}" href="{{ url_for('security_guide') }}">
                             <i class="fas fa-shield-alt me-1"></i>Security Guide
@@ -55,16 +57,48 @@
                             <i class="fas fa-question-circle me-1"></i>FAQ
                         </a>
                     </li>
+                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'report' %}active{% endif %}" href="{{ url_for('report') }}">
                             <i class="fas fa-flag me-1"></i>Report
                         </a>
                     </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'about' %}active{% endif %}" href="{{ url_for('about') }}">
                             <i class="fas fa-info-circle me-1"></i>About
                         </a>
                     </li>
+                </ul>
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="fas fa-user me-1"></i>
+                            {% if current_user.is_admin %}
+                            Admin: {{ current_user.username }}
+                            {% else %}
+                            {{ current_user.username }}
+                            {% endif %}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('logout') }}">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('login') }}">
+                            <i class="fas fa-sign-in-alt me-1"></i>Login
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('register') }}">
+                            <i class="fas fa-user-plus me-1"></i>Register
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
