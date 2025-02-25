@@ -124,13 +124,20 @@ document.getElementById('urlForm').addEventListener('submit', function(e) {
 
     fetch('/analyze', {
         method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            throw new Error(data.error);
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
         }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(err => {
+                throw new Error(err.error || 'Failed to analyze URL');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
         // Hide loading spinner and show results
         document.getElementById('loadingSpinner').classList.add('d-none');
         document.getElementById('resultsSection').classList.remove('d-none');
@@ -158,8 +165,9 @@ document.getElementById('urlForm').addEventListener('submit', function(e) {
     })
     .catch(error => {
         document.getElementById('loadingSpinner').classList.add('d-none');
-        document.getElementById('errorAlert').textContent = error.message;
-        document.getElementById('errorAlert').classList.remove('d-none');
+        const errorAlert = document.getElementById('errorAlert');
+        errorAlert.textContent = error.message || 'Error analyzing URL. Please try again.';
+        errorAlert.classList.remove('d-none');
     });
 });
 
