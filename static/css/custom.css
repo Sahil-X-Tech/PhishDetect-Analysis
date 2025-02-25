@@ -1,9 +1,10 @@
 /* Custom styles to complement Bootstrap dark theme */
 body {
-    background-image:url("AIWALLPAPER.jpg");
+    background-image: url("../img/AIWALLPAPER.jpg");
     background-size: cover;
     background-repeat: no-repeat;
     background-position: center;
+    background-attachment: fixed;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -15,7 +16,7 @@ main {
 
 .card {
     border: 1px solid rgba(255, 255, 255, 0.1);
-    background-color: var(--bs-dark);
+    background-color: rgba(33, 37, 41, 0.85);  /* semi-transparent dark background */
 }
 
 .card-title {
