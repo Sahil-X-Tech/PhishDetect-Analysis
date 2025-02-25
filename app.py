@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, jsonify
 import logging
 from phishing_detector import PhishingURLDetector
 import validators
+from datetime import datetime
+from database import db
+from models import Report
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -10,6 +13,16 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+
+# Configure SQLAlchemy
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///phishing.db")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
+# initialize the app with the extension
+db.init_app(app)
 
 # Initialize and load the model
 detector = PhishingURLDetector()
@@ -55,6 +68,16 @@ def report():
     """Report page for false positives/negatives"""
     return render_template('report.html')
 
+@app.route('/reports')
+def view_reports():
+    """View all submitted reports"""
+    try:
+        reports = Report.query.order_by(Report.reported_at.desc()).all()
+        return render_template('reports.html', reports=reports)
+    except Exception as e:
+        logger.error(f"Error fetching reports: {str(e)}")
+        return render_template('reports.html', reports=[], error="Error fetching reports")
+
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
     """Analyze URL for phishing detection"""
@@ -73,6 +96,15 @@ def analyze_url():
     try:
         # Get prediction
         result = detector.predict(url)
+
+        # Save report to database
+        report = Report(
+            url=url,
+            is_phishing=result['prediction'] == 'phishing',
+            confidence_score=result['confidence']
+        )
+        db.session.add(report)
+        db.session.commit()
 
         # Extract features for visualization
         features = detector.feature_extractor.extract_features(url)
@@ -121,4 +153,6 @@ def analyze_url():
         return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(host='0.0.0.0', port=5000, debug=True)

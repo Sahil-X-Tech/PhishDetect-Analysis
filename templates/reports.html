@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-list me-2"></i>Submitted Reports
+                </h2>
+
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Confidence</th>
+                                <th>Reported At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in reports %}
+                            <tr>
+                                <td class="text-break">
+                                    <a href="{{ report.url }}" target="_blank" rel="noopener noreferrer">
+                                        {{ report.url }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if report.is_phishing %}
+                                    <span class="badge bg-danger">Phishing</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Safe</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(report.confidence_score * 100) }}%</td>
+                                <td>{{ report.reported_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center">No reports available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
