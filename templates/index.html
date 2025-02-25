@@ -108,6 +108,8 @@
 </div>
 
 <script>
+let confidenceChart = null;
+
 document.getElementById('urlForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const url = document.getElementById('urlInput').value;
@@ -190,16 +192,16 @@ function updateConfidenceChart(safeProbability, phishingProbability) {
     const ctx = document.getElementById('confidenceChart').getContext('2d');
 
     // Destroy existing chart if it exists
-    if (window.confidenceChart) {
-        window.confidenceChart.destroy();
+    if (confidenceChart instanceof Chart) {
+        confidenceChart.destroy();
     }
 
-    window.confidenceChart = new Chart(ctx, {
+    confidenceChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Safe', 'Suspicious'],
             datasets: [{
-                data: [safeProbability, phishingProbability],
+                data: [safeProbability * 100, phishingProbability * 100],
                 backgroundColor: ['#198754', '#dc3545']
             }]
         },
