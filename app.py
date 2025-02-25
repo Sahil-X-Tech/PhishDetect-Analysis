@@ -152,6 +152,28 @@ def analyze_url():
         logger.error(f"Error analyzing URL: {str(e)}")
         return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
 
+@app.route('/submit_report', methods=['POST'])
+def submit_report():
+    """Submit a new report"""
+    try:
+        data = request.form
+        report = Report(
+            url=data.get('url'),
+            is_phishing=data.get('actualResult') == 'phishing',
+            confidence_score=1.0,  # Default confidence for manual reports
+            reporter_email=data.get('email'),
+            report_type=data.get('reportType'),
+            description=data.get('description'),
+            expected_result=data.get('expectedResult'),
+            actual_result=data.get('actualResult')
+        )
+        db.session.add(report)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error submitting report: {str(e)}")
+        return jsonify({'error': 'Error submitting report. Please try again.'}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

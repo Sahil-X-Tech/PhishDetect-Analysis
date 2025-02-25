@@ -19,33 +19,46 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th>Report Type</th>
                                 <th>URL</th>
-                                <th>Status</th>
-                                <th>Confidence</th>
-                                <th>Reported At</th>
+                                <th>Expected vs Actual</th>
+                                <th>Description</th>
+                                <th>Reporter</th>
+                                <th>Submitted At</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for report in reports %}
                             <tr>
+                                <td>
+                                    <span class="badge {% if report.report_type == 'false_positive' %}bg-warning{% elif report.report_type == 'false_negative' %}bg-danger{% else %}bg-info{% endif %}">
+                                        {{ report.report_type|replace('_', ' ')|title }}
+                                    </span>
+                                </td>
                                 <td class="text-break">
                                     <a href="{{ report.url }}" target="_blank" rel="noopener noreferrer">
                                         {{ report.url }}
                                     </a>
                                 </td>
                                 <td>
-                                    {% if report.is_phishing %}
-                                    <span class="badge bg-danger">Phishing</span>
-                                    {% else %}
-                                    <span class="badge bg-success">Safe</span>
-                                    {% endif %}
+                                    <small class="d-block">Expected: 
+                                        <span class="badge {% if report.expected_result == 'safe' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ report.expected_result|title }}
+                                        </span>
+                                    </small>
+                                    <small class="d-block">Actual: 
+                                        <span class="badge {% if report.actual_result == 'safe' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ report.actual_result|title }}
+                                        </span>
+                                    </small>
                                 </td>
-                                <td>{{ "%.2f"|format(report.confidence_score * 100) }}%</td>
+                                <td>{{ report.description or 'No description provided' }}</td>
+                                <td>{{ report.reporter_email or 'Anonymous' }}</td>
                                 <td>{{ report.reported_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="text-center">No reports available</td>
+                                <td colspan="6" class="text-center">No reports available</td>
                             </tr>
                             {% endfor %}
                         </tbody>

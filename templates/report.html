@@ -105,9 +105,25 @@
 <script>
 document.getElementById('reportForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    // Here you would typically send the form data to your backend
-    alert('Thank you for your report. We will investigate and take appropriate action.');
-    this.reset();
+    const formData = new FormData(this);
+
+    fetch('/submit_report', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Thank you for your report. We will investigate and take appropriate action.');
+            window.location.href = '/reports';  // Redirect to reports page
+        } else {
+            alert('Error submitting report: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error submitting report. Please try again.');
+    });
 });
 </script>
 {% endblock %}
