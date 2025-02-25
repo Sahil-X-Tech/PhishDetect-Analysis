@@ -9,6 +9,7 @@
                     <i class="fas fa-shield-alt me-2"></i>URL Security Analysis
                 </h2>
                 <form id="urlForm" class="mb-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="input-group">
                         <input type="url" class="form-control" id="urlInput" 
                                placeholder="Enter URL to analyze" required>
@@ -105,4 +106,116 @@
         <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
     </div>
 </div>
+
+<script>
+document.getElementById('urlForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value;
+    const formData = new FormData();
+    formData.append('url', url);
+    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+    // Show loading spinner
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('resultsSection').classList.add('d-none');
+    document.getElementById('errorAlert').classList.add('d-none');
+
+    fetch('/analyze', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        // Hide loading spinner and show results
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('resultsSection').classList.remove('d-none');
+
+        // Update the result indicator
+        const resultText = document.getElementById('resultText');
+        const resultIcon = resultText.previousElementSibling;
+        if (data.prediction === 'phishing') {
+            resultText.textContent = 'Potentially Unsafe';
+            resultText.className = 'mt-2 text-danger';
+            resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
+        } else {
+            resultText.textContent = 'Safe';
+            resultText.className = 'mt-2 text-success';
+            resultIcon.className = 'fas fa-check-circle text-success fa-4x';
+        }
+
+        // Update metrics
+        updateMetrics('securityMetrics', data.security_metrics);
+        updateMetrics('urlStructure', data.url_structure);
+        updateMetrics('suspiciousPatterns', data.suspicious_patterns);
+
+        // Update confidence chart
+        updateConfidenceChart(data.probability_safe, data.probability_phishing);
+    })
+    .catch(error => {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('errorAlert').textContent = error.message;
+        document.getElementById('errorAlert').classList.remove('d-none');
+    });
+});
+
+function updateMetrics(elementId, metrics) {
+    const container = document.getElementById(elementId);
+    container.innerHTML = '';
+
+    Object.entries(metrics).forEach(([key, value]) => {
+        const row = document.createElement('div');
+        row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
+
+        const label = document.createElement('span');
+        label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        const indicator = document.createElement('span');
+        if (typeof value === 'boolean') {
+            indicator.className = `badge ${value ? 'bg-danger' : 'bg-success'}`;
+            indicator.textContent = value ? 'Yes' : 'No';
+        } else if (typeof value === 'number') {
+            indicator.textContent = value;
+        }
+
+        row.appendChild(label);
+        row.appendChild(indicator);
+        container.appendChild(row);
+    });
+}
+
+function updateConfidenceChart(safeProbability, phishingProbability) {
+    const ctx = document.getElementById('confidenceChart').getContext('2d');
+
+    // Destroy existing chart if it exists
+    if (window.confidenceChart) {
+        window.confidenceChart.destroy();
+    }
+
+    window.confidenceChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Safe', 'Suspicious'],
+            datasets: [{
+                data: [safeProbability, phishingProbability],
+                backgroundColor: ['#198754', '#dc3545']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                title: {
+                    display: true,
+                    text: 'Confidence Score'
+                }
+            }
+        }
+    });
+}
+</script>
 {% endblock %}
