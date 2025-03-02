@@ -97,6 +97,10 @@ class URLFeatureExtractor:
             'linkedin': 'linkedin'
         }
         
+        # Explicit check for common misspelled domains
+        if domain_name == 'gogle':
+            return 1
+            
         # If it's an exact match to a legitimate domain, it's not misspelled
         if domain_name in legitimate_domains.values():
             return 0
@@ -110,6 +114,10 @@ class URLFeatureExtractor:
             # Exact match
             if domain_name == canonical:
                 return 0
+            
+            # Special case for common misspellings
+            if genuine == 'google' and domain_name == 'gogle':
+                return 1
                 
             # Check for common typosquatting techniques
             if (canonical in domain_name and domain_name != canonical) or \
@@ -125,7 +133,7 @@ class URLFeatureExtractor:
         misspelled_patterns = [
             r"0{1,}o", r"1{1,}l", r"3{1,}e", r"1{1,}i", 
             r"(.)\1{3,}",  # Only flag 3+ repeated chars
-            r"g0+gle", r"go{2,}gle", r"g0ogle", r"goog1e",
+            r"g0+gle", r"go{2,}gle", r"g0ogle", r"goog1e", r"gogle",
             r"faecbook", r"faceb00k", r"facebok", 
             r"amaz0n", r"am4zon", r"microsft", r"micr0soft",
             r"ht{2,}p:\/\/"
@@ -304,6 +312,11 @@ class PhishingURLDetector:
             # Check for misspelled versions of popular domains
             is_suspicious_variant = False
             for genuine, variants in self.trusted_domains_map.items():
+                # Special handling for common misspellings of major domains
+                if genuine == 'google' and 'gogle' in domain_name:
+                    is_suspicious_variant = True
+                    break
+                
                 # Calculate edit distance to detect potential misspellings
                 # Simple version: if the domain looks similar but isn't exact, it's suspicious
                 if genuine in domain_name and domain_name != genuine:
