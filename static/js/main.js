@@ -62,7 +62,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof value === 'boolean' || value === 0 || value === 1) {
                 // Convert to Yes/No for both boolean and 0/1 values
                 const isTrue = value === true || value === 1;
-                indicator.className = `badge ${isTrue ? 'bg-danger' : 'bg-success'}`;
+                
+                // Special handling for HTTPS - Yes should be green, No should be red
+                if (key === 'HTTPS') {
+                    indicator.className = `badge ${isTrue ? 'bg-success' : 'bg-danger'}`;
+                } else {
+                    // For other metrics keep the existing logic (Yes=danger, No=success)
+                    indicator.className = `badge ${isTrue ? 'bg-danger' : 'bg-success'}`;
+                }
+                
                 indicator.textContent = isTrue ? 'Yes' : 'No';
             } else if (typeof value === 'number') {
                 indicator.textContent = value;
