@@ -78,21 +78,59 @@ class URLFeatureExtractor:
         return int(any(domain.endswith(tld) for tld in self.suspicious_tlds))
 
     def _has_misspelled_domain(self, domain):
-        # List of known legitimate domains that should never be flagged
-        legitimate_domains = ['google', 'facebook', 'instagram', 'twitter', 'amazon', 'microsoft', 'apple']
+        # Extract domain name without TLD
+        extracted = tldextract.extract(domain)
+        domain_name = extracted.domain.lower()
         
-        # If domain is in our legitimate list, return 0 immediately
-        if domain.lower() in legitimate_domains:
+        # Known legitimate domains for direct comparison
+        legitimate_domains = {
+            'google': 'google',
+            'facebook': 'facebook',
+            'instagram': 'instagram', 
+            'twitter': 'twitter', 
+            'amazon': 'amazon', 
+            'microsoft': 'microsoft', 
+            'apple': 'apple',
+            'github': 'github',
+            'youtube': 'youtube',
+            'netflix': 'netflix',
+            'linkedin': 'linkedin'
+        }
+        
+        # If it's an exact match to a legitimate domain, it's not misspelled
+        if domain_name in legitimate_domains.values():
             return 0
-            
-        # More specific patterns to avoid false positives
+        
+        # Check for common misspellings of popular domains
+        for genuine, canonical in legitimate_domains.items():
+            # Skip short domains to avoid false positives
+            if len(genuine) <= 4:
+                continue
+                
+            # Exact match
+            if domain_name == canonical:
+                return 0
+                
+            # Check for common typosquatting techniques
+            if (canonical in domain_name and domain_name != canonical) or \
+               domain_name == canonical.replace('o', '0') or \
+               domain_name == canonical.replace('i', '1') or \
+               domain_name == canonical.replace('l', '1') or \
+               domain_name == canonical.replace('e', '3') or \
+               domain_name == canonical + canonical[-1] or \
+               domain_name == canonical[:-1]:
+                return 1
+        
+        # Check other patterns for misspellings
         misspelled_patterns = [
             r"0{1,}o", r"1{1,}l", r"3{1,}e", r"1{1,}i", 
-            r"(.)\1{3,}",  # Only flag 3+ repeated chars instead of 2+
-            r"faecbook", r"gogle", r"ht{2,}:\/\/",  # More specific patterns
-            r"g{3,}le", r"fa{3,}cebook", r"0o{1,}gle", r"t{2,}witter",
+            r"(.)\1{3,}",  # Only flag 3+ repeated chars
+            r"g0+gle", r"go{2,}gle", r"g0ogle", r"goog1e",
+            r"faecbook", r"faceb00k", r"facebok", 
+            r"amaz0n", r"am4zon", r"microsft", r"micr0soft",
+            r"ht{2,}p:\/\/"
         ]
-        return int(any(re.search(pattern, domain) for pattern in misspelled_patterns))
+        return int(any(re.search(pattern, domain_name) for pattern in misspelled_patterns))
 
     def _is_shortened_url(self, url):
         shortened_domains = [
@@ -117,19 +155,25 @@ class PhishingURLDetector:
         self.label_map = {0: 'phishing', 1: 'safe'}
         self.vector_size = 100
         self.tld_encoder = LabelEncoder()
-        self.trusted_domains = [
-            'google.com', 'www.google.com', 
-            'facebook.com', 'www.facebook.com',
-            'twitter.com', 'www.twitter.com',
-            'instagram.com', 'www.instagram.com',
-            'amazon.com', 'www.amazon.com',
-            'microsoft.com', 'www.microsoft.com',
-            'apple.com', 'www.apple.com',
-            'github.com', 'www.github.com',
-            'youtube.com', 'www.youtube.com',
-            'netflix.com', 'www.netflix.com',
-            'linkedin.com', 'www.linkedin.com'
-        ]
+        # Define canonical forms of trusted domains
+        self.trusted_domains_map = {
+            'google': ['google.com', 'www.google.com'],
+            'facebook': ['facebook.com', 'www.facebook.com'],
+            'twitter': ['twitter.com', 'www.twitter.com'],
+            'instagram': ['instagram.com', 'www.instagram.com'],
+            'amazon': ['amazon.com', 'www.amazon.com'],
+            'microsoft': ['microsoft.com', 'www.microsoft.com'],
+            'apple': ['apple.com', 'www.apple.com'],
+            'github': ['github.com', 'www.github.com'],
+            'youtube': ['youtube.com', 'www.youtube.com'],
+            'netflix': ['netflix.com', 'www.netflix.com'],
+            'linkedin': ['linkedin.com', 'www.linkedin.com']
+        }
+        
+        # Flatten for backwards compatibility
+        self.trusted_domains = []
+        for domains in self.trusted_domains_map.values():
+            self.trusted_domains.extend(domains)
 
     def train(self, urls, labels):
         """Train the complete model pipeline"""
@@ -234,12 +278,20 @@ class PhishingURLDetector:
             raise ValueError("Models not trained! Call train() or load_models() first.")
 
         try:
-            # Check if URL is in trusted domains list first
+            # Parse the URL and extract domain
             parsed_url = urlparse(url.lower())
             domain = parsed_url.netloc
             
-            # If it's a trusted domain, return safe directly
-            if domain in self.trusted_domains or any(domain.endswith('.' + td) for td in self.trusted_domains):
+            # Extract domain parts
+            extracted = tldextract.extract(url.lower())
+            domain_name = extracted.domain
+            
+            # Check if it's a known legitimate domain (exact match only)
+            is_exact_trusted = domain in self.trusted_domains
+            
+            # For common domains like Google, check for exact match only
+            # This prevents misspellings like "gogle.com" from being considered legitimate
+            if is_exact_trusted:
                 return {
                     'url': url,
                     'prediction': 'safe',
@@ -247,6 +299,38 @@ class PhishingURLDetector:
                     'confidence': 0.99,
                     'probability_phishing': 0.01,
                     'probability_safe': 0.99
+                }
+                
+            # Check for misspelled versions of popular domains
+            is_suspicious_variant = False
+            for genuine, variants in self.trusted_domains_map.items():
+                # Calculate edit distance to detect potential misspellings
+                # Simple version: if the domain looks similar but isn't exact, it's suspicious
+                if genuine in domain_name and domain_name != genuine:
+                    is_suspicious_variant = True
+                    break
+                
+                # Check for typosquatting techniques (adding/removing a letter)
+                if len(genuine) > 4 and (
+                   genuine[:-1] == domain_name or
+                   genuine[1:] == domain_name or
+                   genuine.replace('o', '0') == domain_name or
+                   genuine.replace('i', '1') == domain_name or
+                   genuine.replace('l', '1') == domain_name or
+                   genuine.replace('e', '3') == domain_name
+                ):
+                    is_suspicious_variant = True
+                    break
+            
+            # If it looks like a misspelled version of a trusted domain, mark as phishing
+            if is_suspicious_variant:
+                return {
+                    'url': url,
+                    'prediction': 'phishing',
+                    'is_phishing': True,
+                    'confidence': 0.98,
+                    'probability_phishing': 0.98,
+                    'probability_safe': 0.02
                 }
             
             # Prepare features for the single URL
