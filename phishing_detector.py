@@ -117,6 +117,19 @@ class PhishingURLDetector:
         self.label_map = {0: 'phishing', 1: 'safe'}
         self.vector_size = 100
         self.tld_encoder = LabelEncoder()
+        self.trusted_domains = [
+            'google.com', 'www.google.com', 
+            'facebook.com', 'www.facebook.com',
+            'twitter.com', 'www.twitter.com',
+            'instagram.com', 'www.instagram.com',
+            'amazon.com', 'www.amazon.com',
+            'microsoft.com', 'www.microsoft.com',
+            'apple.com', 'www.apple.com',
+            'github.com', 'www.github.com',
+            'youtube.com', 'www.youtube.com',
+            'netflix.com', 'www.netflix.com',
+            'linkedin.com', 'www.linkedin.com'
+        ]
 
     def train(self, urls, labels):
         """Train the complete model pipeline"""
@@ -221,6 +234,21 @@ class PhishingURLDetector:
             raise ValueError("Models not trained! Call train() or load_models() first.")
 
         try:
+            # Check if URL is in trusted domains list first
+            parsed_url = urlparse(url.lower())
+            domain = parsed_url.netloc
+            
+            # If it's a trusted domain, return safe directly
+            if domain in self.trusted_domains or any(domain.endswith('.' + td) for td in self.trusted_domains):
+                return {
+                    'url': url,
+                    'prediction': 'safe',
+                    'is_phishing': False,
+                    'confidence': 0.99,
+                    'probability_phishing': 0.01,
+                    'probability_safe': 0.99
+                }
+            
             # Prepare features for the single URL
             features = self._prepare_single_url_features(url)
 
