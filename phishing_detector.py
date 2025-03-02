@@ -78,10 +78,19 @@ class URLFeatureExtractor:
         return int(any(domain.endswith(tld) for tld in self.suspicious_tlds))
 
     def _has_misspelled_domain(self, domain):
+        # List of known legitimate domains that should never be flagged
+        legitimate_domains = ['google', 'facebook', 'instagram', 'twitter', 'amazon', 'microsoft', 'apple']
+        
+        # If domain is in our legitimate list, return 0 immediately
+        if domain.lower() in legitimate_domains:
+            return 0
+            
+        # More specific patterns to avoid false positives
         misspelled_patterns = [
-            r"0{1,}o", r"1{1,}l", r"3{1,}e", r"1{1,}i", r"(.)\1{2,}",
-            r"faecbook", r"gogle", r"(o{2,}|g{2,}|e{2,})", r"ht{1,}:\/\/",
-            r"g{2,}le", r"fa{2,}cebook", r"0o{1,}gle", r"t{1,}witter",
+            r"0{1,}o", r"1{1,}l", r"3{1,}e", r"1{1,}i", 
+            r"(.)\1{3,}",  # Only flag 3+ repeated chars instead of 2+
+            r"faecbook", r"gogle", r"ht{2,}:\/\/",  # More specific patterns
+            r"g{3,}le", r"fa{3,}cebook", r"0o{1,}gle", r"t{2,}witter",
         ]
         return int(any(re.search(pattern, domain) for pattern in misspelled_patterns))
 
