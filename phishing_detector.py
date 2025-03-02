@@ -81,7 +81,7 @@ class URLFeatureExtractor:
         # Extract domain name without TLD
         extracted = tldextract.extract(domain)
         domain_name = extracted.domain.lower()
-        
+
         # Known legitimate domains for direct comparison
         legitimate_domains = {
             'google': 'google',
@@ -106,7 +106,7 @@ class URLFeatureExtractor:
             'adobe': 'adobe',
             'wordpress': 'wordpress'
         }
-        
+
         # Common misspellings dictionary - maps misspelled versions to their correct forms
         common_misspellings = {
             'gogle': 'google',
@@ -147,35 +147,37 @@ class URLFeatureExtractor:
             'insatgram': 'instagram',
             'instagrm': 'instagram'
         }
-        
+
         # Direct check for known misspellings
         if domain_name in common_misspellings:
             return 1
-            
+
         # If it's an exact match to a legitimate domain, it's not misspelled
         if domain_name in legitimate_domains.values():
             return 0
-        
+
         # Check for common misspellings of popular domains
         for genuine, canonical in legitimate_domains.items():
             # Skip short domains to avoid false positives
             if len(genuine) <= 3:
                 continue
-                
+
             # Exact match
             if domain_name == canonical:
-                return 0
-            
+                extracted = tldextract.extract(domain)
+                if extracted.suffix in ['com', 'org', 'net', 'edu', 'gov', 'io', 'co', 'ai', 'app']:
+                    return 0
+
             # Levenshtein distance check for similar domains
             # Calculate simple edit distance
             if len(domain_name) > 3 and len(canonical) > 3:
                 # Simple homoglyph check (similar looking characters)
                 homoglyph_domain = domain_name.replace('0', 'o').replace('1', 'l').replace('1', 'i').replace('3', 'e')
-                
+
                 # If the domain contains the canonical name but isn't exactly it
                 if canonical in domain_name and domain_name != canonical:
                     return 1
-                
+
                 # Check if it's a common typo (character swapped)
                 chars = list(canonical)
                 for i in range(len(chars) - 1):
@@ -183,33 +185,33 @@ class URLFeatureExtractor:
                     swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
                     if ''.join(swapped) == domain_name:
                         return 1
-                
+
                 # Check for deleted character
                 for i in range(len(canonical)):
                     if canonical[:i] + canonical[i+1:] == domain_name:
                         return 1
-                
+
                 # Check for inserted character
                 if len(domain_name) == len(canonical) + 1:
                     for i in range(len(domain_name)):
                         if domain_name[:i] + domain_name[i+1:] == canonical:
                             return 1
-                
+
                 # Check for substituted character
                 differences = sum(1 for a, b in zip(canonical, domain_name) if a != b)
                 if len(canonical) == len(domain_name) and differences == 1:
                     return 1
-                
+
                 # Check for homoglyph substitution
                 if homoglyph_domain == canonical:
                     return 1
-                
+
                 # Check for repeated characters (e.g., googgle)
                 if len(domain_name) > len(canonical) and re.search(r'(.)\1{2,}', domain_name):
                     compressed = re.sub(r'(.)\1+', r'\1\1', domain_name)
                     if compressed == canonical or compressed == canonical + canonical[-1]:
                         return 1
-        
+
         # Check other patterns for misspellings
         misspelled_patterns = [
             # Character substitutions
@@ -226,23 +228,23 @@ class URLFeatureExtractor:
             r"l(i|1)nk(e|3)d(i|1)n",
             r"tw(i|1)tt(e|3)r",
             # Protocol typos
-            r"htt+p(s)?:/+", r"ht{2,}p:\/\/"
+            r"htt+p(s)?:/+", r"ht{2,}p://"
         ]
-        
+
         # Check for 3+ consecutive repeating patterns that might indicate keyboard mashing
         if re.search(r'(.{2,})\1{2,}', domain_name):
             return 1
-            
+
         # Check for excessive numbers in domain (phishing sites often use many numbers)
         digit_count = sum(c.isdigit() for c in domain_name)
         if digit_count > len(domain_name) * 0.4 and len(domain_name) > 5:
             return 1
-            
+
         # Check for random-looking strings (high entropy domains)
         consonant_groups = re.findall(r'[bcdfghjklmnpqrstvwxyz]{4,}', domain_name)
         if consonant_groups and len(consonant_groups[0]) > 4:
             return 1
-        
+
         return int(any(re.search(pattern, domain_name) for pattern in misspelled_patterns))
 
     def _is_shortened_url(self, url):
@@ -282,7 +284,7 @@ class PhishingURLDetector:
             'netflix': ['netflix.com', 'www.netflix.com'],
             'linkedin': ['linkedin.com', 'www.linkedin.com']
         }
-        
+
         # Flatten for backwards compatibility
         self.trusted_domains = []
         for domains in self.trusted_domains_map.values():
@@ -394,14 +396,14 @@ class PhishingURLDetector:
             # Parse the URL and extract domain
             parsed_url = urlparse(url.lower())
             domain = parsed_url.netloc
-            
+
             # Extract domain parts
             extracted = tldextract.extract(url.lower())
             domain_name = extracted.domain
-            
+
             # Check if it's a known legitimate domain (exact match only)
             is_exact_trusted = domain in self.trusted_domains
-            
+
             # For common domains like Google, check for exact match only
             # This prevents misspellings like "gogle.com" from being considered legitimate
             if is_exact_trusted:
@@ -413,10 +415,10 @@ class PhishingURLDetector:
                     'probability_phishing': 0.01,
                     'probability_safe': 0.99
                 }
-                
+
             # Use the improved _has_misspelled_domain method to check for misspellings
             is_misspelled = self.feature_extractor._has_misspelled_domain(domain) == 1
-            
+
             # If the domain is detected as misspelled, mark as suspicious
             if is_misspelled:
                 is_suspicious_variant = True
@@ -427,7 +429,7 @@ class PhishingURLDetector:
                     # Skip very short domain names to prevent false positives
                     if len(genuine) <= 3:
                         continue
-                        
+
                     # Check for typosquatting techniques with more sophisticated rules
                     if len(genuine) > 4:
                         # Check for homoglyphs (similar looking characters)
@@ -435,7 +437,7 @@ class PhishingURLDetector:
                         if homoglyph_domain == genuine and domain_name != genuine:
                             is_suspicious_variant = True
                             break
-                            
+
                         # Check for character swaps (transposition errors)
                         chars = list(genuine)
                         for i in range(len(chars) - 1):
@@ -444,7 +446,7 @@ class PhishingURLDetector:
                             if ''.join(swapped) == domain_name:
                                 is_suspicious_variant = True
                                 break
-                                
+
                         # Check for added/removed characters
                         if abs(len(domain_name) - len(genuine)) == 1:
                             # Check if removing any one character from the longer string results in the shorter string
@@ -458,10 +460,10 @@ class PhishingURLDetector:
                                     if genuine[:i] + genuine[i+1:] == domain_name:
                                         is_suspicious_variant = True
                                         break
-                    
+
                     if is_suspicious_variant:
                         break
-            
+
             # If it looks like a misspelled version of a trusted domain, mark as phishing
             if is_suspicious_variant:
                 return {
@@ -472,7 +474,7 @@ class PhishingURLDetector:
                     'probability_phishing': 0.98,
                     'probability_safe': 0.02
                 }
-            
+
             # Prepare features for the single URL
             features = self._prepare_single_url_features(url)
 
