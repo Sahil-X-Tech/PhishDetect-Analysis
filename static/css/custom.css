@@ -1,10 +1,6 @@
 /* Custom styles to complement Bootstrap dark theme */
 body {
-    background-image: url("../img/AIWALLPAPER.jpg");
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: center;
-    background-attachment: fixed;
+    background-color: var(--bs-dark);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
