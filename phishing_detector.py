@@ -94,11 +94,62 @@ class URLFeatureExtractor:
             'github': 'github',
             'youtube': 'youtube',
             'netflix': 'netflix',
-            'linkedin': 'linkedin'
+            'linkedin': 'linkedin',
+            'yahoo': 'yahoo',
+            'paypal': 'paypal',
+            'dropbox': 'dropbox',
+            'gmail': 'gmail',
+            'outlook': 'outlook',
+            'hotmail': 'hotmail',
+            'ebay': 'ebay',
+            'walmart': 'walmart',
+            'adobe': 'adobe',
+            'wordpress': 'wordpress'
         }
         
-        # Explicit check for common misspelled domains
-        if domain_name == 'gogle':
+        # Common misspellings dictionary - maps misspelled versions to their correct forms
+        common_misspellings = {
+            'gogle': 'google',
+            'goggle': 'google',
+            'googel': 'google',
+            'gooogle': 'google',
+            'g00gle': 'google',
+            'googlle': 'google',
+            'goole': 'google',
+            'faceboook': 'facebook',
+            'facebok': 'facebook',
+            'facbook': 'facebook',
+            'fcebook': 'facebook',
+            'faebook': 'facebook',
+            'faceb00k': 'facebook',
+            'twiter': 'twitter',
+            'twitted': 'twitter',
+            'twiteer': 'twitter',
+            'twutter': 'twitter',
+            'amazn': 'amazon',
+            'amzon': 'amazon',
+            'ammazon': 'amazon',
+            'amazom': 'amazon',
+            'amaz0n': 'amazon',
+            'microsft': 'microsoft',
+            'micosoft': 'microsoft',
+            'micorsoft': 'microsoft',
+            'mircosoft': 'microsoft',
+            'paypl': 'paypal',
+            'paypall': 'paypal',
+            'paypai': 'paypal',
+            'linkedln': 'linkedin',
+            'linkeldn': 'linkedin',
+            'youtub': 'youtube',
+            'yutube': 'youtube',
+            'yuotube': 'youtube',
+            'instagarm': 'instagram',
+            'insatgram': 'instagram',
+            'instagrm': 'instagram'
+        }
+        
+        # Direct check for known misspellings
+        if domain_name in common_misspellings:
             return 1
             
         # If it's an exact match to a legitimate domain, it's not misspelled
@@ -108,36 +159,90 @@ class URLFeatureExtractor:
         # Check for common misspellings of popular domains
         for genuine, canonical in legitimate_domains.items():
             # Skip short domains to avoid false positives
-            if len(genuine) <= 4:
+            if len(genuine) <= 3:
                 continue
                 
             # Exact match
             if domain_name == canonical:
                 return 0
             
-            # Special case for common misspellings
-            if genuine == 'google' and domain_name == 'gogle':
-                return 1
+            # Levenshtein distance check for similar domains
+            # Calculate simple edit distance
+            if len(domain_name) > 3 and len(canonical) > 3:
+                # Simple homoglyph check (similar looking characters)
+                homoglyph_domain = domain_name.replace('0', 'o').replace('1', 'l').replace('1', 'i').replace('3', 'e')
                 
-            # Check for common typosquatting techniques
-            if (canonical in domain_name and domain_name != canonical) or \
-               domain_name == canonical.replace('o', '0') or \
-               domain_name == canonical.replace('i', '1') or \
-               domain_name == canonical.replace('l', '1') or \
-               domain_name == canonical.replace('e', '3') or \
-               domain_name == canonical + canonical[-1] or \
-               domain_name == canonical[:-1]:
-                return 1
+                # If the domain contains the canonical name but isn't exactly it
+                if canonical in domain_name and domain_name != canonical:
+                    return 1
+                
+                # Check if it's a common typo (character swapped)
+                chars = list(canonical)
+                for i in range(len(chars) - 1):
+                    swapped = chars.copy()
+                    swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
+                    if ''.join(swapped) == domain_name:
+                        return 1
+                
+                # Check for deleted character
+                for i in range(len(canonical)):
+                    if canonical[:i] + canonical[i+1:] == domain_name:
+                        return 1
+                
+                # Check for inserted character
+                if len(domain_name) == len(canonical) + 1:
+                    for i in range(len(domain_name)):
+                        if domain_name[:i] + domain_name[i+1:] == canonical:
+                            return 1
+                
+                # Check for substituted character
+                differences = sum(1 for a, b in zip(canonical, domain_name) if a != b)
+                if len(canonical) == len(domain_name) and differences == 1:
+                    return 1
+                
+                # Check for homoglyph substitution
+                if homoglyph_domain == canonical:
+                    return 1
+                
+                # Check for repeated characters (e.g., googgle)
+                if len(domain_name) > len(canonical) and re.search(r'(.)\1{2,}', domain_name):
+                    compressed = re.sub(r'(.)\1+', r'\1\1', domain_name)
+                    if compressed == canonical or compressed == canonical + canonical[-1]:
+                        return 1
         
         # Check other patterns for misspellings
         misspelled_patterns = [
-            r"0{1,}o", r"1{1,}l", r"3{1,}e", r"1{1,}i", 
-            r"(.)\1{3,}",  # Only flag 3+ repeated chars
-            r"g0+gle", r"go{2,}gle", r"g0ogle", r"goog1e", r"gogle",
-            r"faecbook", r"faceb00k", r"facebok", 
-            r"amaz0n", r"am4zon", r"microsft", r"micr0soft",
-            r"ht{2,}p:\/\/"
+            # Character substitutions
+            r"0{1}o", r"1{1}l", r"3{1}e", r"1{1}i", r"5{1}s", r"6{1}b", r"8{1}b", 
+            # Excessive repetition (3+ same character)
+            r"(.)\1{2,}",
+            # Domain-specific patterns
+            r"g0+gle", r"goo+gle", r"g0ogle", r"goog1e", r"gogle",
+            r"face(b0+k|bo{2,}k)", r"faceb00k",
+            r"(a|4)m(a|4)z(o|0)n", 
+            r"micr(o|0)(s|5)(o|0)ft",
+            r"y(o|0)utub(e|3)",
+            r"inst(a|4)gr(a|4)m",
+            r"l(i|1)nk(e|3)d(i|1)n",
+            r"tw(i|1)tt(e|3)r",
+            # Protocol typos
+            r"htt+p(s)?:/+", r"ht{2,}p:\/\/"
         ]
+        
+        # Check for 3+ consecutive repeating patterns that might indicate keyboard mashing
+        if re.search(r'(.{2,})\1{2,}', domain_name):
+            return 1
+            
+        # Check for excessive numbers in domain (phishing sites often use many numbers)
+        digit_count = sum(c.isdigit() for c in domain_name)
+        if digit_count > len(domain_name) * 0.4 and len(domain_name) > 5:
+            return 1
+            
+        # Check for random-looking strings (high entropy domains)
+        consonant_groups = re.findall(r'[bcdfghjklmnpqrstvwxyz]{4,}', domain_name)
+        if consonant_groups and len(consonant_groups[0]) > 4:
+            return 1
+        
         return int(any(re.search(pattern, domain_name) for pattern in misspelled_patterns))
 
     def _is_shortened_url(self, url):
@@ -309,31 +414,53 @@ class PhishingURLDetector:
                     'probability_safe': 0.99
                 }
                 
-            # Check for misspelled versions of popular domains
-            is_suspicious_variant = False
-            for genuine, variants in self.trusted_domains_map.items():
-                # Special handling for common misspellings of major domains
-                if genuine == 'google' and 'gogle' in domain_name:
-                    is_suspicious_variant = True
-                    break
-                
-                # Calculate edit distance to detect potential misspellings
-                # Simple version: if the domain looks similar but isn't exact, it's suspicious
-                if genuine in domain_name and domain_name != genuine:
-                    is_suspicious_variant = True
-                    break
-                
-                # Check for typosquatting techniques (adding/removing a letter)
-                if len(genuine) > 4 and (
-                   genuine[:-1] == domain_name or
-                   genuine[1:] == domain_name or
-                   genuine.replace('o', '0') == domain_name or
-                   genuine.replace('i', '1') == domain_name or
-                   genuine.replace('l', '1') == domain_name or
-                   genuine.replace('e', '3') == domain_name
-                ):
-                    is_suspicious_variant = True
-                    break
+            # Use the improved _has_misspelled_domain method to check for misspellings
+            is_misspelled = self.feature_extractor._has_misspelled_domain(domain) == 1
+            
+            # If the domain is detected as misspelled, mark as suspicious
+            if is_misspelled:
+                is_suspicious_variant = True
+            else:
+                # Additional checks for misspelled versions of popular domains
+                is_suspicious_variant = False
+                for genuine, variants in self.trusted_domains_map.items():
+                    # Skip very short domain names to prevent false positives
+                    if len(genuine) <= 3:
+                        continue
+                        
+                    # Check for typosquatting techniques with more sophisticated rules
+                    if len(genuine) > 4:
+                        # Check for homoglyphs (similar looking characters)
+                        homoglyph_domain = domain_name.replace('0', 'o').replace('1', 'l').replace('1', 'i').replace('3', 'e')
+                        if homoglyph_domain == genuine and domain_name != genuine:
+                            is_suspicious_variant = True
+                            break
+                            
+                        # Check for character swaps (transposition errors)
+                        chars = list(genuine)
+                        for i in range(len(chars) - 1):
+                            swapped = chars.copy()
+                            swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
+                            if ''.join(swapped) == domain_name:
+                                is_suspicious_variant = True
+                                break
+                                
+                        # Check for added/removed characters
+                        if abs(len(domain_name) - len(genuine)) == 1:
+                            # Check if removing any one character from the longer string results in the shorter string
+                            if len(domain_name) > len(genuine):
+                                for i in range(len(domain_name)):
+                                    if domain_name[:i] + domain_name[i+1:] == genuine:
+                                        is_suspicious_variant = True
+                                        break
+                            else:
+                                for i in range(len(genuine)):
+                                    if genuine[:i] + genuine[i+1:] == domain_name:
+                                        is_suspicious_variant = True
+                                        break
+                    
+                    if is_suspicious_variant:
+                        break
             
             # If it looks like a misspelled version of a trusted domain, mark as phishing
             if is_suspicious_variant:
