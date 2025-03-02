@@ -17,6 +17,31 @@ class URLFeatureExtractor:
             'signin', 'confirm', 'password', 'credential', 'security'
         ]
         self.suspicious_tlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz']
+        self.legitimate_domains = {
+            'google': 'google',
+            'facebook': 'facebook',
+            'instagram': 'instagram', 
+            'twitter': 'twitter', 
+            'amazon': 'amazon', 
+            'microsoft': 'microsoft', 
+            'apple': 'apple',
+            'github': 'github',
+            'youtube': 'youtube',
+            'netflix': 'netflix',
+            'linkedin': 'linkedin',
+            'yahoo': 'yahoo',
+            'paypal': 'paypal',
+            'dropbox': 'dropbox',
+            'gmail': 'gmail',
+            'outlook': 'outlook',
+            'hotmail': 'hotmail',
+            'ebay': 'ebay',
+            'walmart': 'walmart',
+            'adobe': 'adobe',
+            'wordpress': 'wordpress',
+            'chatgpt': 'chatgpt',
+            'openai': 'openai'
+        }
 
     def extract_features(self, url):
         features = {}
@@ -420,6 +445,9 @@ class PhishingURLDetector:
                     'probability_safe': 0.99
                 }
                 
+            # Get the legitimate domains from the feature extractor
+            legitimate_domains = self.feature_extractor.legitimate_domains
+            
             # Check if this is a legitimate domain by domain name alone (for chatgpt.com, etc.)
             # This ensures domains like "chatgpt.com" that might not be in the exact match list are still detected
             if domain_name.lower() in legitimate_domains.values():
