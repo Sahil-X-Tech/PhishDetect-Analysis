@@ -88,7 +88,6 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
-@login_required
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
@@ -104,7 +103,6 @@ def security_guide():
     return render_template('security-guide.html')
 
 @app.route('/statistics')
-@login_required
 def statistics():
     """Statistics page showing detection metrics"""
     return render_template('statistics.html')
@@ -120,28 +118,22 @@ def faq():
     return render_template('faq.html')
 
 @app.route('/report')
-@login_required
 def report():
     """Report page for false positives/negatives"""
     return render_template('report.html')
 
 @app.route('/reports')
-@login_required
 def view_reports():
     """View all submitted reports"""
     try:
-        # If user is admin, show all reports, otherwise show only their reports
-        if current_user.is_admin:
-            reports = Report.query.order_by(Report.reported_at.desc()).all()
-        else:
-            reports = Report.query.filter_by(reporter_email=current_user.email).order_by(Report.reported_at.desc()).all()
+        # Show all reports since login is removed
+        reports = Report.query.order_by(Report.reported_at.desc()).all()
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")
         return render_template('reports.html', reports=[], error="Error fetching reports")
 
 @app.route('/analyze', methods=['POST'])
-@login_required
 def analyze_url():
     """Analyze URL for phishing detection"""
     try:
@@ -193,7 +185,7 @@ def analyze_url():
                 url=url,
                 is_phishing=result['prediction'] == 'phishing',
                 confidence_score=result['confidence'],
-                reporter_email=current_user.email,
+                reporter_email="anonymous@user.com",
                 report_type='automatic',
                 actual_result=result['prediction']
             )
@@ -223,7 +215,6 @@ def analyze_url():
         return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
 
 @app.route('/submit_report', methods=['POST'])
-@login_required
 def submit_report():
     """Submit a new report"""
     try:
@@ -232,7 +223,7 @@ def submit_report():
             url=data.get('url'),
             is_phishing=data.get('actualResult') == 'phishing',
             confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email=current_user.email,
+            reporter_email="anonymous@user.com",
             report_type=data.get('reportType'),
             description=data.get('description'),
             expected_result=data.get('expectedResult'),
