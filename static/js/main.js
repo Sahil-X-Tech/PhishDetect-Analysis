@@ -5,41 +5,147 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorAlert = document.getElementById('errorAlert');
     let confidenceChart = null;
 
-    urlForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
+    if (urlForm) {
+        urlForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
 
-        const urlInput = document.getElementById('urlInput').value;
+            const urlInput = document.getElementById('urlInput').value;
+            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
 
-        // Reset UI
-        loadingSpinner.classList.remove('d-none');
-        resultsSection.classList.add('d-none');
-        errorAlert.classList.add('d-none');
+            // Reset UI
+            loadingSpinner.classList.remove('d-none');
+            resultsSection.classList.add('d-none');
+            if (errorAlert) errorAlert.classList.add('d-none');
 
-        try {
-            const response = await fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `url=${encodeURIComponent(urlInput)}`
-            });
+            try {
+                const formData = new FormData();
+                formData.append('url', urlInput);
+                formData.append('csrf_token', csrfToken);
 
-            const data = await response.json();
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Analysis failed');
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Analysis failed');
+                    } else {
+                        throw new Error('Server error occurred');
+                    }
+                }
+
+                const data = await response.json();
+                updateResults(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loadingSpinner.classList.add('d-none');
             }
+        });
+    }
 
-            updateResults(data);
-        } catch (error) {
-            showError(error.message);
-        } finally {
-            loadingSpinner.classList.add('d-none');
+    function showError(message) {
+        if (errorAlert) {
+            errorAlert.textContent = message;
+            errorAlert.classList.remove('d-none');
+        } else {
+            console.error('Error:', message);
         }
-    });
+    }
 
     function updateResults(data) {
         resultsSection.classList.remove('d-none');
+        
+        // Update result indicator
+        const resultText = document.getElementById('resultText');
+        const resultIcon = document.querySelector('#resultIndicator i');
+        
+        if (resultText && resultIcon) {
+            if (data.prediction === 'phishing') {
+                resultText.textContent = 'Potentially Unsafe';
+                resultText.className = 'mt-2 text-danger';
+                resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
+            } else {
+                resultText.textContent = 'Safe';
+                resultText.className = 'mt-2 text-success';
+                resultIcon.className = 'fas fa-check-circle text-success fa-4x';
+            }
+        }
+
+        // Update metrics
+        updateMetrics('securityMetrics', data.security_metrics);
+        updateMetrics('urlStructure', data.url_structure);
+        updateMetrics('suspiciousPatterns', data.suspicious_patterns);
+
+        // Update confidence chart
+        updateConfidenceChart(data.probability_safe, data.probability_phishing);
+    }
+    
+    function updateMetrics(elementId, metrics) {
+        const container = document.getElementById(elementId);
+        if (!container || !metrics) return;
+        
+        container.innerHTML = '';
+        
+        Object.entries(metrics).forEach(([key, value]) => {
+            const row = document.createElement('div');
+            row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
+            
+            const label = document.createElement('span');
+            label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            
+            const indicator = document.createElement('span');
+            if (typeof value === 'boolean') {
+                indicator.innerHTML = value ? 
+                    '<i class="fas fa-times-circle text-danger"></i>' : 
+                    '<i class="fas fa-check-circle text-success"></i>';
+            } else {
+                indicator.textContent = value;
+            }
+            
+            row.appendChild(label);
+            row.appendChild(indicator);
+            container.appendChild(row);
+        });
+    }
+    
+    function updateConfidenceChart(safeProbability, phishingProbability) {
+        const ctx = document.getElementById('confidenceChart');
+        if (!ctx) return;
+        
+        if (confidenceChart) {
+            confidenceChart.destroy();
+        }
+        
+        confidenceChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Safe', 'Potentially Unsafe'],
+                datasets: [{
+                    data: [safeProbability, phishingProbability],
+                    backgroundColor: ['rgba(40, 167, 69, 0.8)', 'rgba(220, 53, 69, 0.8)'],
+                    borderColor: ['#28a745', '#dc3545'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Confidence Score'
+                    }
+                }
+            }
+        });
+    }
 
         // Update result indicator
         const resultIndicator = document.getElementById('resultIndicator');

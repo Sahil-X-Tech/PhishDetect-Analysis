@@ -39,6 +39,9 @@
             </div>
             <div class="spinner-text">Analyzing URL security...</div>
         </div>
+        
+        <!-- Error Alert -->
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
 
         <!-- Results Section -->
         <div id="resultsSection" class="d-none">
@@ -107,47 +110,7 @@
     </div>
 </div>
 
-<script>
-let confidenceChart = null;
-
-document.getElementById('urlForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const url = document.getElementById('urlInput').value;
-    const formData = new FormData();
-    formData.append('url', url);
-    formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
-
-    // Show loading spinner
-    document.getElementById('loadingSpinner').classList.remove('d-none');
-    document.getElementById('resultsSection').classList.add('d-none');
-    document.getElementById('errorAlert').classList.add('d-none');
-
-    fetch('/analyze', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(err => {
-                throw new Error(err.error || 'Failed to analyze URL');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        // Hide loading spinner and show results
-        document.getElementById('loadingSpinner').classList.add('d-none');
-        document.getElementById('resultsSection').classList.remove('d-none');
-
-        // Update the result indicator
-        const resultText = document.getElementById('resultText');
-        const resultIcon = resultText.previousElementSibling;
-        if (data.prediction === 'phishing') {
-            resultText.textContent = 'Potentially Unsafe';
-            resultText.className = 'mt-2 text-danger';
+-danger';
             resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
         } else {
             resultText.textContent = 'Safe';
