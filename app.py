@@ -156,7 +156,7 @@ def analyze_url():
 
         # Prepare feature groups for visualization
         security_metrics = {
-            'HTTPS': parsed_url.scheme == 'https',
+            'HTTPS': bool(features['is_https']),
             'Special Characters': features['special_char_count'],
             'Suspicious Keywords': features['suspicious_keyword_count'],
             'Suspicious TLD': bool(features['has_suspicious_tld'])
