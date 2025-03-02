@@ -130,6 +130,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Update result indicator
                 const resultText = document.getElementById('resultText');
                 const resultIcon = document.querySelector('#resultIndicator i');
+                
+                // Ensure HTTPS is correctly displayed as Yes/No instead of 0/1
+                if (data.security_metrics && data.security_metrics.hasOwnProperty('HTTPS')) {
+                    data.security_metrics.HTTPS = data.security_metrics.HTTPS ? 'Yes' : 'No';
+                }
 
                 if (resultText && resultIcon) {
                     if (data.prediction === 'phishing') {
