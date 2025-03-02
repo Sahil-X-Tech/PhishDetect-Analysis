@@ -1,31 +1,30 @@
 import os
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import logging
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from phishing_detector import PhishingURLDetector
 import validators
 from datetime import datetime
-from database import db
+from database import db, init_db
 from models import Report, User
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.security import generate_password_hash
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Create Flask app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
 
-# Configure SQLAlchemy
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
-# initialize the app with the extension, flask-sqlalchemy >= 3.0.x
-db.init_app(app)
+# Configure secret key
+app.secret_key = os.environ.get("SESSION_SECRET")
+if not app.secret_key:
+    raise RuntimeError("SESSION_SECRET is not set. Please provide a secure session secret key.")
+
+# Initialize database
+init_db(app)
+
+# Initialize CSRF protection
 csrf = CSRFProtect(app)
 
 # Initialize Flask-Login
