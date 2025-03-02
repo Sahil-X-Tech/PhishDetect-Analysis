@@ -39,7 +39,7 @@
             </div>
             <div class="spinner-text">Analyzing URL security...</div>
         </div>
-        
+
         <!-- Error Alert -->
         <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
 
@@ -104,13 +104,39 @@
                 </div>
             </div>
         </div>
-
-        <!-- Error Alert -->
-        <div id="errorAlert" class="alert alert-danger d-none" role="alert"></div>
     </div>
 </div>
+{% endblock %}
 
--danger';
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+document.getElementById('urlForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const url = document.getElementById('urlInput').value;
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('resultsSection').classList.add('d-none');
+    document.getElementById('errorAlert').classList.add('d-none');
+
+    fetch('/analyze', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: url, csrf_token: '{{ csrf_token() }}' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('resultsSection').classList.remove('d-none');
+
+        // Update result indicator
+        const resultText = document.getElementById('resultText');
+        const resultIcon = document.getElementById('resultIndicator').querySelector('i');
+        if (data.safe === false) {
+            resultText.textContent = 'Suspicious';
+            resultText.className = 'mt-2 text-danger';
             resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
         } else {
             resultText.textContent = 'Safe';
