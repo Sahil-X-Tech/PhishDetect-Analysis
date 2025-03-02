@@ -104,7 +104,9 @@ class URLFeatureExtractor:
             'ebay': 'ebay',
             'walmart': 'walmart',
             'adobe': 'adobe',
-            'wordpress': 'wordpress'
+            'wordpress': 'wordpress',
+            'chatgpt': 'chatgpt',
+            'openai': 'openai'
         }
 
         # Common misspellings dictionary - maps misspelled versions to their correct forms
@@ -282,7 +284,9 @@ class PhishingURLDetector:
             'github': ['github.com', 'www.github.com'],
             'youtube': ['youtube.com', 'www.youtube.com'],
             'netflix': ['netflix.com', 'www.netflix.com'],
-            'linkedin': ['linkedin.com', 'www.linkedin.com']
+            'linkedin': ['linkedin.com', 'www.linkedin.com'],
+            'chatgpt': ['chatgpt.com', 'www.chatgpt.com'],
+            'openai': ['openai.com', 'www.openai.com']
         }
 
         # Flatten for backwards compatibility
@@ -415,6 +419,20 @@ class PhishingURLDetector:
                     'probability_phishing': 0.01,
                     'probability_safe': 0.99
                 }
+                
+            # Check if this is a legitimate domain by domain name alone (for chatgpt.com, etc.)
+            # This ensures domains like "chatgpt.com" that might not be in the exact match list are still detected
+            if domain_name.lower() in legitimate_domains.values():
+                extracted = tldextract.extract(url.lower())
+                if extracted.suffix in ['com', 'org', 'net', 'edu', 'gov', 'io', 'co', 'ai', 'app']:
+                    return {
+                        'url': url,
+                        'prediction': 'safe',
+                        'is_phishing': False,
+                        'confidence': 0.95,
+                        'probability_phishing': 0.05,
+                        'probability_safe': 0.95
+                    }
 
             # Use the improved _has_misspelled_domain method to check for misspellings
             is_misspelled = self.feature_extractor._has_misspelled_domain(domain) == 1
