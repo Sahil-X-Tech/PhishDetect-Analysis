@@ -47,33 +47,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Function to update metric cards
-    function updateMetrics(containerId, metricsData) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-
+    function updateMetrics(elementId, metrics) {
+        const container = document.getElementById(elementId);
         container.innerHTML = '';
 
-        Object.entries(metricsData).forEach(([key, value]) => {
+        Object.entries(metrics).forEach(([key, value]) => {
             const row = document.createElement('div');
-            row.className = 'metric-row d-flex justify-content-between align-items-center';
+            row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
 
             const label = document.createElement('span');
-            label.textContent = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-            const valueEl = document.createElement('span');
-
-            if (typeof value === 'boolean') {
-                valueEl.innerHTML = value ? 
-                    '<i class="fas fa-times-circle text-danger"></i>' : 
-                    '<i class="fas fa-check-circle text-success"></i>';
+            const indicator = document.createElement('span');
+            if (typeof value === 'boolean' || value === 0 || value === 1) {
+                // Convert to Yes/No for both boolean and 0/1 values
+                const isTrue = value === true || value === 1;
+                indicator.className = `badge ${isTrue ? 'bg-danger' : 'bg-success'}`;
+                indicator.textContent = isTrue ? 'Yes' : 'No';
             } else if (typeof value === 'number') {
-                valueEl.textContent = value;
-            } else {
-                valueEl.textContent = value.toString();
+                indicator.textContent = value;
             }
 
             row.appendChild(label);
-            row.appendChild(valueEl);
+            row.appendChild(indicator);
             container.appendChild(row);
         });
     }
@@ -200,22 +196,22 @@ document.addEventListener('DOMContentLoaded', function() {
 function updateMetricsTable(tableId, metrics) {
     const table = document.getElementById(tableId);
     if (!table) return;
-    
+
     const tbody = table.querySelector("tbody");
     if (!tbody) return;
-    
+
     tbody.innerHTML = "";
-    
+
     for (const [key, value] of Object.entries(metrics)) {
         const row = document.createElement("tr");
         row.className = "metric-row";
-        
+
         const keyCell = document.createElement("td");
         keyCell.textContent = key;
-        
+
         const valueCell = document.createElement("td");
         valueCell.className = "text-end";
-        
+
         if (typeof value === "boolean") {
             const badge = document.createElement("span");
             badge.className = value ? "badge bg-danger" : "badge bg-success";
@@ -224,7 +220,7 @@ function updateMetricsTable(tableId, metrics) {
         } else {
             valueCell.textContent = value;
         }
-        
+
         row.appendChild(keyCell);
         row.appendChild(valueCell);
         tbody.appendChild(row);
@@ -235,14 +231,14 @@ function updateMetricsTable(tableId, metrics) {
 function updateConfidenceChartOld(safeProb, phishingProb) {
     const chartContainer = document.getElementById("confidenceChart");
     if (!chartContainer) return;
-    
+
     // Clear previous chart
     chartContainer.innerHTML = "";
-    
+
     // Create the chart using a simple div representation
     const safePct = Math.round(safeProb * 100);
     const phishingPct = Math.round(phishingProb * 100);
-    
+
     chartContainer.innerHTML = `
         <div class="progress" style="height: 20px;">
             <div class="progress-bar bg-success" role="progressbar" style="width: ${safePct}%" 
