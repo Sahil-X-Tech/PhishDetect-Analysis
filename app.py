@@ -246,6 +246,29 @@ def delete_reports():
     except Exception as e:
         logger.error(f"Error deleting reports: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+        
+@app.route('/delete_selected_reports', methods=['POST'])
+def delete_selected_reports():
+    """Delete selected reports"""
+    try:
+        data = request.json
+        report_ids = data.get('report_ids', [])
+        
+        if not report_ids:
+            return jsonify({'success': False, 'error': 'No reports selected'}), 400
+            
+        deleted_count = Report.query.filter(Report.id.in_(report_ids)).delete(synchronize_session='fetch')
+        db.session.commit()
+        
+        logger.info(f"Successfully deleted {deleted_count} selected reports")
+        return jsonify({
+            'success': True, 
+            'message': f'Successfully deleted {deleted_count} selected reports',
+            'count': deleted_count
+        })
+    except Exception as e:
+        logger.error(f"Error deleting selected reports: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def create_admin_user():
     """Create admin user if it doesn't exist"""
