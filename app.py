@@ -261,15 +261,23 @@ def submit_report():
     """Submit a new report"""
     try:
         data = request.form
+        url = data.get('url')
+        actual_result = data.get('actualResult')
+        report_type = data.get('reportType')
+        
+        # Validate required fields
+        if not url or not actual_result or not report_type:
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+            
         report = Report(
-            url=data.get('url'),
-            is_phishing=data.get('actualResult') == 'phishing',
+            url=url,
+            is_phishing=actual_result == 'phishing',
             confidence_score=1.0,  # Default confidence for manual reports
             reporter_email="anonymous@user.com",
-            report_type=data.get('reportType'),
-            description=data.get('description'),
-            expected_result=data.get('expectedResult'),
-            actual_result=data.get('actualResult'))
+            report_type=report_type,
+            description=data.get('description', ''),
+            expected_result=data.get('expectedResult', ''),
+            actual_result=actual_result)
         db.session.add(report)
         db.session.commit()
         return jsonify({
@@ -278,6 +286,7 @@ def submit_report():
         })
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
+        db.session.rollback()  # Rollback transaction on error
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
@@ -343,7 +352,7 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         create_admin_user()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)
 
 
 @app.teardown_appcontext
