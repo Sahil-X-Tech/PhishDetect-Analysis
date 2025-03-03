@@ -19,7 +19,9 @@ app = Flask(__name__)
 # Configure secret key
 app.secret_key = os.environ.get("SESSION_SECRET")
 if not app.secret_key:
-    raise RuntimeError("SESSION_SECRET is not set. Please provide a secure session secret key.")
+    raise RuntimeError(
+        "SESSION_SECRET is not set. Please provide a secure session secret key."
+    )
 
 # Initialize database
 init_db(app)
@@ -32,18 +34,23 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+
 @login_manager.user_loader
 def load_user(id):
     return User.query.get(int(id))
 
+
 # Update the model loading section
 try:
     detector = PhishingURLDetector()
-    detector.load_models('phishing_detector.joblib')  # Changed from 'attached_assets/phishing_detector.joblib'
+    detector.load_models(
+        'phishing_detector.joblib'
+    )  # Changed from 'attached_assets/phishing_detector.joblib'
     logger.info("Model loaded successfully")
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     detector = None
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -58,6 +65,7 @@ def login():
 
         flash('Invalid email or password')
     return render_template('login.html')
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -80,70 +88,86 @@ def register():
 
     return render_template('register.html')
 
+
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
 @app.route('/')
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
+
 
 @app.route('/about')
 def about():
     """About page with project information"""
     return render_template('about.html')
 
+
 @app.route('/security-guide')
 def security_guide():
     """Security guide page with phishing prevention tips"""
     return render_template('security-guide.html')
+
 
 @app.route('/statistics')
 def statistics():
     """Statistics page showing detection metrics"""
     return render_template('statistics.html')
 
+
 @app.route('/documentation')
 def documentation():
     """Documentation page with technical details"""
     return render_template('documentation.html')
+
 
 @app.route('/faq')
 def faq():
     """FAQ page with common questions"""
     return render_template('faq.html')
 
+
 @app.route('/report')
 def report():
     """Report page for false positives/negatives"""
     return render_template('report.html')
+
 
 @app.route('/reports')
 def view_reports():
     """View all user-submitted reports (excludes automatic search reports)"""
     try:
         # Only show reports that were manually submitted (excluding 'automatic' reports)
-        reports = Report.query.filter(Report.report_type != 'automatic').order_by(Report.reported_at.desc()).all()
-        
+        reports = Report.query.filter(
+            Report.report_type != 'automatic').order_by(
+                Report.reported_at.desc()).all()
+
         # Ensure description is displayed
         for report in reports:
             if not report.description:
                 report.description = "No additional details provided"
-                
+
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")
-        return render_template('reports.html', reports=[], error="Error fetching reports")
+        return render_template('reports.html',
+                               reports=[],
+                               error="Error fetching reports")
+
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
     """Analyze URL for phishing detection"""
     try:
         if detector is None:
-            return jsonify({'error': 'Model not initialized. Please try again later.'}), 500
+            return jsonify(
+                {'error':
+                 'Model not initialized. Please try again later.'}), 500
 
         url = request.form.get('url', '').strip()
 
@@ -186,14 +210,12 @@ def analyze_url():
 
         # Save report to database
         try:
-            report = Report(
-                url=url,
-                is_phishing=result['prediction'] == 'phishing',
-                confidence_score=result['confidence'],
-                reporter_email="anonymous@user.com",
-                report_type='automatic',
-                actual_result=result['prediction']
-            )
+            report = Report(url=url,
+                            is_phishing=result['prediction'] == 'phishing',
+                            confidence_score=result['confidence'],
+                            reporter_email="anonymous@user.com",
+                            report_type='automatic',
+                            actual_result=result['prediction'])
             db.session.add(report)
             db.session.commit()
         except Exception as db_error:
@@ -203,7 +225,8 @@ def analyze_url():
         response = {
             'prediction': result['prediction'],
             'confidence': round(result['confidence'] * 100, 2),
-            'probability_phishing': round(result['probability_phishing'] * 100, 2),
+            'probability_phishing': round(result['probability_phishing'] * 100,
+                                          2),
             'probability_safe': round(result['probability_safe'] * 100, 2),
             'security_metrics': security_metrics,
             'url_structure': url_structure,
@@ -217,7 +240,9 @@ def analyze_url():
 
     except Exception as e:
         logger.error(f"Error analyzing URL: {str(e)}")
-        return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
+        return jsonify({'error':
+                        'Error analyzing URL. Please try again.'}), 500
+
 
 @app.route('/submit_report', methods=['POST'])
 def submit_report():
@@ -232,15 +257,18 @@ def submit_report():
             report_type=data.get('reportType'),
             description=data.get('description'),
             expected_result=data.get('expectedResult'),
-            actual_result=data.get('actualResult')
-        )
+            actual_result=data.get('actualResult'))
         db.session.add(report)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Report submitted successfully'})
+        return jsonify({
+            'success': True,
+            'message': 'Report submitted successfully'
+        })
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 400
-        
+
+
 @app.route('/delete_reports', methods=['POST'])
 def delete_reports():
     """Delete all reports"""
@@ -248,47 +276,56 @@ def delete_reports():
         Report.query.delete()
         db.session.commit()
         logger.info("All reports deleted successfully")
-        return jsonify({'success': True, 'message': 'All reports deleted successfully'})
+        return jsonify({
+            'success': True,
+            'message': 'All reports deleted successfully'
+        })
     except Exception as e:
         logger.error(f"Error deleting reports: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-        
+
+
 @app.route('/delete_selected_reports', methods=['POST'])
 def delete_selected_reports():
     """Delete selected reports"""
     try:
         data = request.json
         report_ids = data.get('report_ids', [])
-        
+
         if not report_ids:
-            return jsonify({'success': False, 'error': 'No reports selected'}), 400
-            
-        deleted_count = Report.query.filter(Report.id.in_(report_ids)).delete(synchronize_session='fetch')
+            return jsonify({
+                'success': False,
+                'error': 'No reports selected'
+            }), 400
+
+        deleted_count = Report.query.filter(
+            Report.id.in_(report_ids)).delete(synchronize_session='fetch')
         db.session.commit()
-        
+
         logger.info(f"Successfully deleted {deleted_count} selected reports")
         return jsonify({
-            'success': True, 
-            'message': f'Successfully deleted {deleted_count} selected reports',
+            'success': True,
+            'message':
+            f'Successfully deleted {deleted_count} selected reports',
             'count': deleted_count
         })
     except Exception as e:
         logger.error(f"Error deleting selected reports: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 def create_admin_user():
     """Create admin user if it doesn't exist"""
     admin = User.query.filter_by(email='admin@phishingdetector.com').first()
     if not admin:
-        admin = User(
-            username='admin',
-            email='admin@phishingdetector.com',
-            is_admin=True
-        )
+        admin = User(username='admin',
+                     email='admin@phishingdetector.com',
+                     is_admin=True)
         admin.set_password('Sahilkhan123')
         db.session.add(admin)
         db.session.commit()
         logger.info("Admin user created successfully")
+
 
 if __name__ == '__main__':
     with app.app_context():
