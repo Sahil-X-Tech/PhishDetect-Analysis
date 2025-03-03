@@ -234,6 +234,18 @@ def submit_report():
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 400
+        
+@app.route('/delete_reports', methods=['POST'])
+def delete_reports():
+    """Delete all reports"""
+    try:
+        Report.query.delete()
+        db.session.commit()
+        logger.info("All reports deleted successfully")
+        return jsonify({'success': True, 'message': 'All reports deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting reports: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def create_admin_user():
     """Create admin user if it doesn't exist"""

@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 
 {% block content %}
@@ -14,6 +15,12 @@
                     {{ error }}
                 </div>
                 {% endif %}
+
+                <div class="d-flex justify-content-end mb-3">
+                    <button id="deleteReportsBtn" class="btn btn-danger">
+                        <i class="fas fa-trash me-2"></i>Clear Report History
+                    </button>
+                </div>
 
                 <div class="table-responsive">
                     <table class="table table-hover">
@@ -41,7 +48,7 @@
                                     </a>
                                 </td>
                                 <td>
-                                    <small class="d-block">Expected: 
+                                    <small class="d-block">Expected:
                                         <span class="badge {% if report.expected_result == 'safe' %}bg-success{% else %}bg-danger{% endif %}">
                                             {{ report.expected_result|title }}
                                         </span>
@@ -64,8 +71,84 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- Confirmation Modal -->
+                <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Deletion</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                Are you sure you want to clear all report history? This action cannot be undone.
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete All Reports</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Alert -->
+                <div id="deleteSuccessAlert" class="alert alert-success mt-3 d-none">
+                    All reports have been deleted successfully!
+                </div>
+
+                <!-- Error Alert -->
+                <div id="deleteErrorAlert" class="alert alert-danger mt-3 d-none"></div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteReportsBtn = document.getElementById('deleteReportsBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    const deleteSuccessAlert = document.getElementById('deleteSuccessAlert');
+    const deleteErrorAlert = document.getElementById('deleteErrorAlert');
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+
+    deleteReportsBtn.addEventListener('click', function() {
+        deleteModal.show();
+    });
+
+    confirmDeleteBtn.addEventListener('click', function() {
+        fetch('/delete_reports', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                deleteSuccessAlert.classList.remove('d-none');
+                deleteModal.hide();
+                
+                // Refresh the page after 1.5 seconds
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                throw new Error(data.error || 'Failed to delete reports');
+            }
+        })
+        .catch(error => {
+            deleteErrorAlert.textContent = error.message || 'Error deleting reports. Please try again.';
+            deleteErrorAlert.classList.remove('d-none');
+            deleteModal.hide();
+        });
+    });
+});
+</script>
 {% endblock %}
