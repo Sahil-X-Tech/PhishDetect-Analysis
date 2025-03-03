@@ -394,9 +394,6 @@ def create_admin_user():
 def shutdown_session(exception=None):
     db.session.remove()
 
-# Initialize the database with the app
-db.init_app(app)
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
