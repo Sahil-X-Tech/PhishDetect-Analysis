@@ -138,6 +138,21 @@ def report():
     return render_template('report.html')
 
 
+@app.route('/api/check', methods=['POST'])
+def check_url():
+    """Simple API endpoint to check if a URL is phishing"""
+    data = request.json
+    url = data.get("url")
+
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    # 🔹 Replace this with your actual phishing detection logic
+    is_phishing = "phish" in url.lower()
+
+    return jsonify({"url": url, "is_phishing": is_phishing})
+
+
 @app.route('/reports')
 def view_reports():
     """View all user-submitted reports (excludes automatic search reports)"""
