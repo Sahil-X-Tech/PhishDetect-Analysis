@@ -25,6 +25,9 @@
                                 <th>Description</th>
                                 <th>Reporter</th>
                                 <th>Submitted At</th>
+                                {% if current_user.is_authenticated and current_user.is_admin %}
+                                <th>Actions</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -55,10 +58,19 @@
                                 <td>{{ report.description or 'No description provided' }}</td>
                                 <td>{{ report.reporter_email or 'Anonymous' }}</td>
                                 <td>{{ report.reported_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                {% if current_user.is_authenticated and current_user.is_admin %}
+                                <td>
+                                    <a href="{{ url_for('delete_report', report_id=report.id) }}" 
+                                       class="btn btn-danger btn-sm" 
+                                       onclick="return confirm('Are you sure you want to delete report #{{ report.id }}?');">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </a>
+                                </td>
+                                {% endif %}
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="6" class="text-center">No reports available</td>
+                                <td colspan="7" class="text-center">No reports available</td>
                             </tr>
                             {% endfor %}
                         </tbody>

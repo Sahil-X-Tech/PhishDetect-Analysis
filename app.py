@@ -205,6 +205,28 @@ def analyze_url():
         }
 
         logger.info(f"Analysis completed for URL: {url}")
+        
+@app.route('/delete_report/<int:report_id>', methods=['POST', 'GET'])
+@login_required
+def delete_report(report_id):
+    """Delete a report from the database by ID"""
+    try:
+        # Check if user is admin
+        if not current_user.is_admin:
+            flash('You do not have permission to delete reports')
+            return redirect(url_for('view_reports'))
+            
+        # Find and delete the report
+        report = Report.query.get_or_404(report_id)
+        db.session.delete(report)
+        db.session.commit()
+        
+        flash('Report deleted successfully')
+        return redirect(url_for('view_reports'))
+    except Exception as e:
+        logger.error(f"Error deleting report {report_id}: {str(e)}")
+        flash('Error deleting report')
+        return redirect(url_for('view_reports'))
         logger.debug(f"Prediction result: {result}")
 
         return jsonify(response)
