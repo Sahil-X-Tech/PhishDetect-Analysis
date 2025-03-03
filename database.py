@@ -14,7 +14,11 @@ if not DATABASE_URL:
     )
 
 # Ensure SSL connection for Render
-DATABASE_URL += "?sslmode=require"
+if "?" not in DATABASE_URL:
+    DATABASE_URL += "?sslmode=require"
+else:
+    # If URL already has parameters, add SSL mode as another parameter
+    DATABASE_URL += "&sslmode=require" if "&" in DATABASE_URL else "&sslmode=require"
 
 # Configure SQLAlchemy with Connection Pooling
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
