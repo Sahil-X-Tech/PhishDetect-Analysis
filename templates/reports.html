@@ -7,6 +7,18 @@
             <div class="card-body">
                 <h2 class="card-title text-center mb-4">
                     <i class="fas fa-list me-2"></i>Submitted Reports
+
+{% if current_user.is_authenticated and current_user.is_admin %}
+<div class="mb-3">
+    <form action="{{ url_for('delete_all_reports') }}" method="POST" onsubmit="return confirm('Are you sure you want to delete ALL reports? This action cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash"></i> Delete All Reports
+        </button>
+    </form>
+</div>
+{% endif %}
+
                 </h2>
 
                 {% if error %}
@@ -37,6 +49,18 @@
                                 </td>
                                 <td class="text-break">
                                     <a href="{{ report.url }}" target="_blank" rel="noopener noreferrer">
+
+{% if current_user.is_authenticated and current_user.is_admin %}
+<td>
+    <form action="{{ url_for('delete_report', report_id=report.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this report?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger btn-sm">
+            <i class="fas fa-trash"></i> Delete
+        </button>
+    </form>
+</td>
+{% endif %}
+
                                         {{ report.url }}
                                     </a>
                                 </td>
