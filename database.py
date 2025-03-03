@@ -1,7 +1,9 @@
+
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.pool import QueuePool
+from urllib.parse import urlparse, parse_qs
 
 app = Flask(__name__)
 
@@ -13,12 +15,16 @@ if not DATABASE_URL:
         "DATABASE_URL is not set. Add it to Replit Secrets or Render Env Variables."
     )
 
-# Ensure SSL connection for Render
-if "?" not in DATABASE_URL:
-    DATABASE_URL += "?sslmode=require"
-else:
-    # If URL already has parameters, add SSL mode as another parameter
-    DATABASE_URL += "&sslmode=require" if "&" in DATABASE_URL else "&sslmode=require"
+# Parse the URL to check if sslmode is already present
+parsed_url = urlparse(DATABASE_URL)
+query_params = parse_qs(parsed_url.query)
+
+# Only add sslmode if it's not already in the URL
+if 'sslmode' not in query_params:
+    if "?" not in DATABASE_URL:
+        DATABASE_URL += "?sslmode=require"
+    else:
+        DATABASE_URL += "&sslmode=require"
 
 # Configure SQLAlchemy with Connection Pooling
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
