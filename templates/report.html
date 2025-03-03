@@ -113,13 +113,8 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
     })
     .then(data => {
         if (data.success) {
-            document.getElementById('successAlert').classList.remove('d-none');
-            // Clear form
+            // Just clear the form silently without alerts or redirects
             this.reset();
-            // Redirect to reports page after 2 seconds
-            setTimeout(() => {
-                window.location.href = '/reports';
-            }, 2000);
         } else {
             throw new Error(data.error || 'Failed to submit report');
         }
