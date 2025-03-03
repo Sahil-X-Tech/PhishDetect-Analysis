@@ -201,51 +201,6 @@ def analyze_url():
             'probability_safe': round(result['probability_safe'] * 100, 2),
             'security_metrics': security_metrics,
             'url_structure': url_structure,
-
-@app.route('/delete_report/<int:report_id>', methods=['POST'])
-@login_required
-def delete_report(report_id):
-    """Delete a report from the database"""
-    try:
-        # Check if user is admin
-        if not current_user.is_admin:
-            flash('You do not have permission to delete reports')
-            return redirect(url_for('view_reports'))
-            
-        # Find and delete the report
-        report = Report.query.get_or_404(report_id)
-        db.session.delete(report)
-        db.session.commit()
-        
-        flash('Report deleted successfully')
-        return redirect(url_for('view_reports'))
-
-@app.route('/delete_all_reports', methods=['POST'])
-@login_required
-def delete_all_reports():
-    """Delete all reports from the database"""
-    try:
-        # Check if user is admin
-        if not current_user.is_admin:
-            flash('You do not have permission to delete reports')
-            return redirect(url_for('view_reports'))
-            
-        # Delete all reports
-        Report.query.delete()
-        db.session.commit()
-        
-        flash('All reports deleted successfully')
-        return redirect(url_for('view_reports'))
-    except Exception as e:
-        logger.error(f"Error deleting all reports: {str(e)}")
-        flash('Error deleting reports')
-        return redirect(url_for('view_reports'))
-
-    except Exception as e:
-        logger.error(f"Error deleting report: {str(e)}")
-        flash('Error deleting report')
-        return redirect(url_for('view_reports'))
-
             'suspicious_patterns': suspicious_patterns
         }
 
