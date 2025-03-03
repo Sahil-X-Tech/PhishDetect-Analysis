@@ -8,6 +8,7 @@ from database import db, app as db_app
 from models import Report, User
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
+from urllib.parse import urlparse, parse_qs
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -19,9 +20,34 @@ app = db_app
 # Configure secret key
 app.secret_key = os.environ.get("SESSION_SECRET")
 if not app.secret_key:
-    raise RuntimeError(
-        "SESSION_SECRET is not set. Please provide a secure session secret key."
-    )
+    logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
+    app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
+    
+# Configure database - get from environment or use the render URL
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    logger.warning("No DATABASE_URL found in environment, using fallback Render database URL")
+    DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
+
+# Parse the URL to check if sslmode is already present
+parsed_url = urlparse(DATABASE_URL)
+query_params = parse_qs(parsed_url.query)
+
+# Only add sslmode if it's not already in the URL and if it's a postgres URL
+if 'postgres' in DATABASE_URL and 'sslmode' not in query_params:
+    if "?" not in DATABASE_URL:
+        DATABASE_URL += "?sslmode=require"
+    else:
+        DATABASE_URL += "&sslmode=require"
+
+# Configure SQLAlchemy
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 5,       # Allow up to 5 connections
+    "pool_recycle": 1800, # Recycle connections every 30 minutes
+    "pool_pre_ping": True # Test connections before using
+}
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
@@ -267,30 +293,43 @@ def submit_report():
 
         # Validate required fields
         if not url or not actual_result or not report_type:
+            logger.warning(f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}")
             return jsonify({
                 'success': False,
                 'error': 'Missing required fields'
             }), 400
 
+        # Log the submission attempt
+        logger.info(f"Attempting to submit report for URL: {url}, type: {report_type}")
+        
+        # Create the report object
         report = Report(
             url=url,
             is_phishing=actual_result == 'phishing',
             confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email="anonymous@user.com",
+            reporter_email=data.get('email', "anonymous@user.com"),
             report_type=report_type,
             description=data.get('description', ''),
             expected_result=data.get('expectedResult', ''),
             actual_result=actual_result)
+            
+        # Add to session and commit with proper error handling
         db.session.add(report)
-        db.session.commit()
-        return jsonify({
-            'success': True,
-            'message': 'Report submitted successfully'
-        })
+        try:
+            db.session.commit()
+            logger.info(f"Report submitted successfully for URL: {url}")
+            return jsonify({
+                'success': True,
+                'message': 'Report submitted successfully'
+            })
+        except Exception as commit_error:
+            logger.error(f"Database commit error: {str(commit_error)}")
+            db.session.rollback()
+            return jsonify({'success': False, 'error': 'Database error when saving report'}), 500
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
         db.session.rollback()  # Rollback transaction on error
-        return jsonify({'success': False, 'error': str(e)}), 400
+        return jsonify({'success': False, 'error': 'An unexpected error occurred'}), 500
 
 
 @app.route('/delete_reports', methods=['POST'])
@@ -351,21 +390,15 @@ def create_admin_user():
         logger.info("Admin user created successfully")
 
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
+
+# Initialize the database with the app
+db.init_app(app)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         create_admin_user()
     app.run(host='0.0.0.0', port=8080, debug=True)
-
-
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    db.session.remove()
-
-
-# Make sure this is correctly set with your Render PostgreSQL URL
-app.config[
-    'SQLALCHEMY_DATABASE_URI'] = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db.init_app(app)
