@@ -264,11 +264,14 @@ def submit_report():
         url = data.get('url')
         actual_result = data.get('actualResult')
         report_type = data.get('reportType')
-        
+
         # Validate required fields
         if not url or not actual_result or not report_type:
-            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-            
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields'
+            }), 400
+
         report = Report(
             url=url,
             is_phishing=actual_result == 'phishing',
@@ -358,3 +361,11 @@ if __name__ == '__main__':
 @app.teardown_appcontext
 def shutdown_session(exception=None):
     db.session.remove()
+
+
+# Make sure this is correctly set with your Render PostgreSQL URL
+app.config[
+    'SQLALCHEMY_DATABASE_URI'] = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)

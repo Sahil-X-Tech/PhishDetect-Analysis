@@ -1,9 +1,10 @@
-
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from urllib.parse import urlparse, parse_qs
+
+db = SQLAlchemy()
 
 app = Flask(__name__)
 
