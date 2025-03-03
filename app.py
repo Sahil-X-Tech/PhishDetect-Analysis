@@ -127,6 +127,12 @@ def view_reports():
     try:
         # Only show reports that were manually submitted (excluding 'automatic' reports)
         reports = Report.query.filter(Report.report_type != 'automatic').order_by(Report.reported_at.desc()).all()
+        
+        # Ensure description is displayed
+        for report in reports:
+            if not report.description:
+                report.description = "No additional details provided"
+                
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")

@@ -113,8 +113,22 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
     })
     .then(data => {
         if (data.success) {
-            // Just clear the form silently without alerts or redirects
+            // Add a success message under the submit button without popup
+            const successMessage = document.createElement('p');
+            successMessage.className = 'text-success mt-3';
+            successMessage.textContent = 'Report submitted successfully';
+            
+            // Get the submit button and add the message after it
+            const submitButton = document.querySelector('#reportForm button[type="submit"]');
+            submitButton.insertAdjacentElement('afterend', successMessage);
+            
+            // Clear form
             this.reset();
+            
+            // Remove the success message after 3 seconds
+            setTimeout(() => {
+                successMessage.remove();
+            }, 3000);
         } else {
             throw new Error(data.error || 'Failed to submit report');
         }
