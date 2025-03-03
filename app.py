@@ -29,6 +29,11 @@ if not DATABASE_URL:
     logger.warning("No DATABASE_URL found in environment, using fallback Render database URL")
     DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
 
+# Fix Render Postgres URL format if needed
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    logger.info("Updated DATABASE_URL format for SQLAlchemy compatibility")
+
 # Parse the URL to check if sslmode is already present
 parsed_url = urlparse(DATABASE_URL)
 query_params = parse_qs(parsed_url.query)
@@ -46,7 +51,14 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_size": 5,       # Allow up to 5 connections
     "pool_recycle": 1800, # Recycle connections every 30 minutes
-    "pool_pre_ping": True # Test connections before using
+    "pool_pre_ping": True, # Test connections before using
+    "connect_args": {
+        "connect_timeout": 10,  # Increase connection timeout
+        "keepalives": 1,        # Enable keepalives
+        "keepalives_idle": 30,  # Idle time before sending keepalives
+        "keepalives_interval": 10,  # Interval between keepalives
+        "keepalives_count": 5   # Number of keepalives before closing
+    }
 }
 
 # Initialize CSRF protection
@@ -286,7 +298,12 @@ def analyze_url():
 def submit_report():
     """Submit a new report"""
     try:
-        data = request.form
+        # Check if form data or JSON data
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form
+            
         url = data.get('url')
         actual_result = data.get('actualResult')
         report_type = data.get('reportType')
@@ -314,8 +331,8 @@ def submit_report():
             actual_result=actual_result)
             
         # Add to session and commit with proper error handling
-        db.session.add(report)
         try:
+            db.session.add(report)
             db.session.commit()
             logger.info(f"Report submitted successfully for URL: {url}")
             return jsonify({
@@ -325,11 +342,12 @@ def submit_report():
         except Exception as commit_error:
             logger.error(f"Database commit error: {str(commit_error)}")
             db.session.rollback()
-            return jsonify({'success': False, 'error': 'Database error when saving report'}), 500
+            return jsonify({'success': False, 'error': f'Database error: {str(commit_error)}'}), 500
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
-        db.session.rollback()  # Rollback transaction on error
-        return jsonify({'success': False, 'error': 'An unexpected error occurred'}), 500
+        if 'db' in globals() and hasattr(db, 'session'):
+            db.session.rollback()  # Rollback transaction on error
+        return jsonify({'success': False, 'error': f'Error: {str(e)}'}), 500
 
 
 @app.route('/delete_reports', methods=['POST'])
