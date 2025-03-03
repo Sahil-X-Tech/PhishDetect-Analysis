@@ -123,10 +123,10 @@ def report():
 
 @app.route('/reports')
 def view_reports():
-    """View all submitted reports"""
+    """View all user-submitted reports (excludes automatic search reports)"""
     try:
-        # Show all reports since login is removed
-        reports = Report.query.order_by(Report.reported_at.desc()).all()
+        # Only show reports that were manually submitted (excluding 'automatic' reports)
+        reports = Report.query.filter(Report.report_type != 'automatic').order_by(Report.reported_at.desc()).all()
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")
