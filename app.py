@@ -4,7 +4,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, f
 from phishing_detector import PhishingURLDetector
 import validators
 from datetime import datetime
-from database import db, init_db
+from database import db, app as db_app
 from models import Report, User
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
@@ -13,8 +13,8 @@ from flask_wtf.csrf import CSRFProtect
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Create Flask app
-app = Flask(__name__)
+# Use the app instance from database.py
+app = db_app
 
 # Configure secret key
 app.secret_key = os.environ.get("SESSION_SECRET")
@@ -22,9 +22,6 @@ if not app.secret_key:
     raise RuntimeError(
         "SESSION_SECRET is not set. Please provide a secure session secret key."
     )
-
-# Initialize database
-init_db(app)
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
