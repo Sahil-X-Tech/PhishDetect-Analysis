@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 import validators
 import urllib.parse
 import tldextract
@@ -22,19 +22,6 @@ if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
 
-# Load the phishing detection model
-model_path = Path('phishing_detector.joblib')
-try:
-    if model_path.exists():
-        model = joblib.load(model_path)
-        logger.info("Successfully loaded phishing detection model")
-    else:
-        logger.warning("Model file not found. Using fallback heuristic analysis.")
-        model = None
-except Exception as e:
-    logger.error(f"Error loading model: {str(e)}")
-    model = None
-
 def extract_features(url):
     """Extract features from URL for model prediction"""
     parsed_url = urllib.parse.urlparse(url)
@@ -50,32 +37,22 @@ def extract_features(url):
         'has_multiple_subdomains': int(len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False),
     }
 
-    # Convert to numpy array for model prediction
-    feature_array = np.array([
-        features['url_length'],
-        features['has_suspicious_words'],
-        features['uses_https'],
-        features['has_suspicious_tld'],
-        features['has_ip_address'],
-        features['has_multiple_subdomains']
-    ]).reshape(1, -1)
-
-    return features, feature_array
+    return features
 
 @app.route('/')
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
 
-@app.route('/statistics')
-def statistics():
-    """Statistics page showing analysis metrics"""
-    return render_template('statistics.html')
-
 @app.route('/about')
 def about():
     """About page with project information"""
     return render_template('about.html')
+
+@app.route('/statistics')
+def statistics():
+    """Statistics page showing analysis metrics"""
+    return render_template('statistics.html')
 
 @app.route('/security-guide')
 def security_guide():
@@ -105,35 +82,25 @@ def analyze_url():
 
         logger.debug(f"Analyzing URL: {url}")
 
-        # Extract features and get model prediction
-        features, feature_array = extract_features(url)
+        # Extract features and analyze
+        features = extract_features(url)
 
-        logger.debug(f"Extracted features: {features}")
+        # Calculate risk score based on features
+        risk_factors = {
+            'length': 1 if features['url_length'] > 100 else 0,
+            'suspicious_words': 2 if features['has_suspicious_words'] else 0,
+            'no_https': 0 if features['uses_https'] else 2,
+            'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
+            'ip_address': 3 if features['has_ip_address'] else 0,
+            'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0
+        }
 
-        if model is not None:
-            # Get model prediction and probability
-            prediction = model.predict(feature_array)[0]
-            probabilities = model.predict_proba(feature_array)[0]
-            probability_safe = probabilities[0]
-            probability_phishing = probabilities[1]
-            is_safe = not bool(prediction)  # Model output: 0 = safe, 1 = phishing
-            logger.debug(f"Model prediction: {prediction}, Probabilities: {probabilities}")
-        else:
-            # Fallback to heuristic analysis if model is not available
-            risk_factors = {
-                'length': 1 if features['url_length'] > 100 else 0,
-                'suspicious_words': 2 if features['has_suspicious_words'] else 0,
-                'no_https': 0 if features['uses_https'] else 2,
-                'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
-                'ip_address': 3 if features['has_ip_address'] else 0,
-                'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0
-            }
-            max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
-            risk_score = sum(risk_factors.values()) / max_score
-            probability_safe = 1 - risk_score
-            probability_phishing = risk_score
-            is_safe = risk_score < 0.4
-            logger.debug(f"Heuristic analysis: Risk score {risk_score}")
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
+        risk_score = sum(risk_factors.values()) / max_score
+
+        probability_safe = 1 - risk_score
+        probability_phishing = risk_score
+        is_safe = risk_score < 0.4
 
         response_data = {
             'safe': is_safe,
@@ -161,6 +128,57 @@ def analyze_url():
     except Exception as e:
         logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
         return jsonify({'error': 'Error analyzing URL'}), 500
+
+# API endpoint for programmatic access
+@app.route('/api/v1/analyze', methods=['POST'])
+def api_analyze():
+    """API endpoint for URL analysis"""
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Content-Type must be application/json'}), 400
+
+        data = request.get_json()
+        url = data.get('url')
+
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        if not validators.url(url):
+            return jsonify({'error': 'Invalid URL format'}), 400
+
+        features = extract_features(url)
+        risk_factors = {
+            'length': 1 if features['url_length'] > 100 else 0,
+            'suspicious_words': 2 if features['has_suspicious_words'] else 0,
+            'no_https': 0 if features['uses_https'] else 2,
+            'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
+            'ip_address': 3 if features['has_ip_address'] else 0,
+            'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0
+        }
+
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
+        risk_score = sum(risk_factors.values()) / max_score
+
+        response = {
+            'url': url,
+            'analysis': {
+                'is_safe': risk_score < 0.4,
+                'risk_score': risk_score,
+                'features': features,
+                'security_metrics': {
+                    'https_enabled': bool(features['uses_https']),
+                    'suspicious_patterns_detected': bool(features['has_suspicious_words']),
+                    'suspicious_tld': bool(features['has_suspicious_tld']),
+                    'uses_ip_address': bool(features['has_ip_address'])
+                }
+            }
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"API Error: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 # Add error handlers to return JSON
 @app.errorhandler(400)
