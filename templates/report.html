@@ -24,8 +24,7 @@
 
                     <div class="col-md-6">
                         <div class="contact-form">
-                            <form id="reportForm" method="POST">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <form id="reportForm">
                                 <div class="mb-3">
                                     <label for="reportType" class="form-label">Report Type</label>
                                     <select class="form-select" id="reportType" name="reportType" required>
@@ -70,7 +69,9 @@
                                 </button>
                             </form>
 
-                            <div id="successAlert" class="alert alert-success mt-3 d-none">Report submitted successfully!</div>
+                            <div id="successAlert" class="alert alert-success mt-3 d-none">
+                                Report submitted successfully!
+                            </div>
                             <div id="errorAlert" class="alert alert-danger mt-3 d-none"></div>
                         </div>
                     </div>
@@ -81,31 +82,38 @@
 </div>
 
 <script>
-document.getElementById('reportForm').addEventListener('submit', async function(e) {
+document.getElementById('reportForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
     // Reset alerts
     document.getElementById('successAlert').classList.add('d-none');
     document.getElementById('errorAlert').classList.add('d-none');
 
-    try {
-        const formData = new FormData(this);
-        const jsonData = {};
-        formData.forEach((value, key) => {
-            jsonData[key] = value;
-        });
+    // Get form data and convert to JSON
+    const formData = {
+        reportType: document.getElementById('reportType').value,
+        url: document.getElementById('url').value,
+        expectedResult: document.getElementById('expectedResult').value,
+        actualResult: document.getElementById('actualResult').value,
+        description: document.getElementById('description').value
+    };
 
-        const response = await fetch('/submit_report', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': formData.get('csrf_token')
-            },
-            body: JSON.stringify(jsonData)
-        });
-
-        const data = await response.json();
+    // Send the request
+    fetch('/submit_report', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
         if (data.success) {
             document.getElementById('successAlert').classList.remove('d-none');
             this.reset();
@@ -115,11 +123,12 @@ document.getElementById('reportForm').addEventListener('submit', async function(
         } else {
             throw new Error(data.error || 'Failed to submit report');
         }
-    } catch (error) {
+    })
+    .catch(error => {
         const errorAlert = document.getElementById('errorAlert');
         errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
         errorAlert.classList.remove('d-none');
-    }
+    });
 });
 </script>
 {% endblock %}

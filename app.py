@@ -111,50 +111,63 @@ def submit_report():
                 'error': 'No data provided'
             }), 400
 
+        # Log the received data for debugging
+        logger.debug(f"Received report data: {data}")
+
         url = data.get('url')
         actual_result = data.get('actualResult')
         report_type = data.get('reportType')
 
         # Validate required fields
-        if not url or not actual_result or not report_type:
-            logger.warning(
-                f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}"
-            )
+        if not all([url, actual_result, report_type]):
+            missing_fields = []
+            if not url: missing_fields.append('url')
+            if not actual_result: missing_fields.append('actual_result')
+            if not report_type: missing_fields.append('report_type')
+
+            logger.warning(f"Missing required fields: {', '.join(missing_fields)}")
             return jsonify({
                 'success': False,
-                'error': 'Missing required fields'
+                'error': f'Missing required fields: {", ".join(missing_fields)}'
             }), 400
 
         logger.info(f"Creating report for URL: {url}")
 
         # Create the report object
-        report = Report(
-            url=url,
-            is_phishing=actual_result == 'phishing',
-            confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email=data.get('email', 'anonymous@user.com'),
-            report_type=report_type,
-            description=data.get('description', ''),
-            expected_result=data.get('expectedResult', ''),
-            actual_result=actual_result
-        )
+        try:
+            report = Report(
+                url=url,
+                is_phishing=actual_result == 'phishing',
+                confidence_score=1.0,  # Default confidence for manual reports
+                reporter_email='anonymous@user.com',
+                report_type=report_type,
+                description=data.get('description', ''),
+                expected_result=data.get('expectedResult'),
+                actual_result=actual_result
+            )
 
-        # Add to session and commit
-        db.session.add(report)
-        db.session.commit()
-        logger.info(f"Report submitted successfully for URL: {url}")
+            # Add to session and commit
+            db.session.add(report)
+            db.session.commit()
+            logger.info(f"Report submitted successfully for URL: {url}")
 
-        return jsonify({
-            'success': True,
-            'message': 'Report submitted successfully'
-        })
+            return jsonify({
+                'success': True,
+                'message': 'Report submitted successfully'
+            })
+        except Exception as db_error:
+            logger.error(f"Database error while creating report: {str(db_error)}")
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save report to database'
+            }), 500
+
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
-        if 'db' in globals() and hasattr(db, 'session'):
-            db.session.rollback()
         return jsonify({
             'success': False,
-            'error': f'Error submitting report: {str(e)}'
+            'error': 'An unexpected error occurred'
         }), 500
 
 @app.route('/analyze', methods=['POST'])
