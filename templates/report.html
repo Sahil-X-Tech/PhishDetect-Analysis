@@ -26,7 +26,7 @@
                         <div class="contact-form">
                             <form id="reportForm">
                                 <div class="mb-3">
-                                    <label for="reportType" class="form-label">Report Type</label>
+                                    <label for="reportType" class="form-label">Report Type <span class="text-danger">*</span></label>
                                     <select class="form-select" id="reportType" name="reportType" required>
                                         <option value="">Select issue type</option>
                                         <option value="false_positive">False Positive</option>
@@ -37,7 +37,7 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="url" class="form-label">URL</label>
+                                    <label for="url" class="form-label">URL <span class="text-danger">*</span></label>
                                     <input type="url" class="form-control" id="url" name="url" placeholder="Enter the URL" required>
                                 </div>
 
@@ -50,7 +50,7 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="actualResult" class="form-label">Actual Result</label>
+                                    <label for="actualResult" class="form-label">Actual Result <span class="text-danger">*</span></label>
                                     <select class="form-select" id="actualResult" name="actualResult" required>
                                         <option value="safe">Safe</option>
                                         <option value="phishing">Phishing</option>
@@ -88,11 +88,17 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        // Reset alerts
+        // Hide any existing alerts
         successAlert.classList.add('d-none');
         errorAlert.classList.add('d-none');
 
-        // Get form data
+        // Validate form
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        // Collect form data
         const formData = {
             reportType: document.getElementById('reportType').value,
             url: document.getElementById('url').value,
@@ -105,14 +111,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/submit_report', {
                 method: 'POST',
                 headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(formData)
             });
 
-            const data = await response.json();
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server error: Invalid response format');
+            }
 
+            const data = await response.json();
             if (data.success) {
                 successAlert.classList.remove('d-none');
                 form.reset();
