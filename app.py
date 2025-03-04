@@ -5,6 +5,8 @@ import validators
 import urllib.parse
 import tldextract
 import re
+import joblib
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,6 +20,40 @@ app.secret_key = os.environ.get("SESSION_SECRET")
 if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
+
+# Load the phishing detection model
+try:
+    model = joblib.load('phishing_detector.joblib')
+    logger.info("Successfully loaded phishing detection model")
+except Exception as e:
+    logger.error(f"Error loading model: {str(e)}")
+    model = None
+
+def extract_features(url):
+    """Extract features from URL for model prediction"""
+    parsed_url = urllib.parse.urlparse(url)
+    extracted = tldextract.extract(url)
+
+    features = {
+        'url_length': len(url),
+        'has_suspicious_words': int(bool(re.search(r'login|account|secure|banking', url.lower()))),
+        'uses_https': int(parsed_url.scheme == 'https'),
+        'has_suspicious_tld': int(extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml']),
+        'has_ip_address': int(bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain))),
+        'has_multiple_subdomains': int(len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False),
+    }
+
+    # Convert to numpy array in the correct order for the model
+    feature_array = np.array([
+        features['url_length'],
+        features['has_suspicious_words'],
+        features['uses_https'],
+        features['has_suspicious_tld'],
+        features['has_ip_address'],
+        features['has_multiple_subdomains']
+    ]).reshape(1, -1)
+
+    return features, feature_array
 
 @app.route('/')
 def index():
@@ -60,52 +96,49 @@ def analyze_url():
         if not validators.url(url):
             return jsonify({'error': 'Invalid URL format'}), 400
 
-        # Extract URL components
-        parsed_url = urllib.parse.urlparse(url)
-        extracted = tldextract.extract(url)
+        # Extract features and get model prediction
+        features, feature_array = extract_features(url)
 
-        # Simple analysis based on common phishing indicators
-        analysis = {
-            'length': len(url),
-            'has_suspicious_words': bool(re.search(r'login|account|secure|banking', url.lower())),
-            'uses_https': parsed_url.scheme == 'https',
-            'has_suspicious_tld': extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml'],
-            'has_ip_address': bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain)),
-            'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
-        }
-
-        # Calculate risk score (simple weighted average)
-        risk_factors = {
-            'length': 1 if analysis['length'] > 100 else 0,
-            'suspicious_words': 2 if analysis['has_suspicious_words'] else 0,
-            'no_https': 0 if analysis['uses_https'] else 2,
-            'suspicious_tld': 2 if analysis['has_suspicious_tld'] else 0,
-            'ip_address': 3 if analysis['has_ip_address'] else 0,
-            'multiple_subdomains': 1 if analysis['has_multiple_subdomains'] else 0
-        }
-
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
-        risk_score = sum(risk_factors.values()) / max_score
-
-        is_safe = risk_score < 0.4
+        if model is not None:
+            # Get model prediction and probability
+            prediction = model.predict(feature_array)[0]
+            probabilities = model.predict_proba(feature_array)[0]
+            probability_safe = probabilities[0]
+            probability_phishing = probabilities[1]
+            is_safe = not bool(prediction)  # Model output: 0 = safe, 1 = phishing
+        else:
+            # Fallback to heuristic analysis if model is not available
+            risk_factors = {
+                'length': 1 if features['url_length'] > 100 else 0,
+                'suspicious_words': 2 if features['has_suspicious_words'] else 0,
+                'no_https': 0 if features['uses_https'] else 2,
+                'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
+                'ip_address': 3 if features['has_ip_address'] else 0,
+                'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0
+            }
+            max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
+            risk_score = sum(risk_factors.values()) / max_score
+            probability_safe = 1 - risk_score
+            probability_phishing = risk_score
+            is_safe = risk_score < 0.4
 
         return jsonify({
             'safe': is_safe,
-            'probability_safe': 1 - risk_score,
-            'probability_phishing': risk_score,
+            'probability_safe': probability_safe,
+            'probability_phishing': probability_phishing,
             'security_metrics': {
-                'HTTPS': analysis['uses_https'],
+                'HTTPS': bool(features['uses_https']),
                 'Domain Age': 'Unknown',  # Would require external API
-                'SSL Certificate': analysis['uses_https']
+                'SSL Certificate': bool(features['uses_https'])
             },
             'url_structure': {
-                'URL Length': analysis['length'],
-                'Multiple Subdomains': analysis['has_multiple_subdomains'],
-                'IP Address Used': analysis['has_ip_address']
+                'URL Length': features['url_length'],
+                'Multiple Subdomains': bool(features['has_multiple_subdomains']),
+                'IP Address Used': bool(features['has_ip_address'])
             },
             'suspicious_patterns': {
-                'Suspicious Keywords': analysis['has_suspicious_words'],
-                'Suspicious TLD': analysis['has_suspicious_tld']
+                'Suspicious Keywords': bool(features['has_suspicious_words']),
+                'Suspicious TLD': bool(features['has_suspicious_tld'])
             }
         })
 
