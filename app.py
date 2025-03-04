@@ -103,7 +103,6 @@ def submit_report():
     try:
         # Get JSON data from request
         data = request.get_json()
-
         if not data:
             logger.error("No JSON data received in request")
             return jsonify({
@@ -111,63 +110,66 @@ def submit_report():
                 'error': 'No data provided'
             }), 400
 
-        # Log the received data for debugging
         logger.debug(f"Received report data: {data}")
 
-        url = data.get('url')
-        actual_result = data.get('actualResult')
-        report_type = data.get('reportType')
-
         # Validate required fields
-        if not all([url, actual_result, report_type]):
-            missing_fields = []
-            if not url: missing_fields.append('url')
-            if not actual_result: missing_fields.append('actual_result')
-            if not report_type: missing_fields.append('report_type')
+        required_fields = {
+            'url': data.get('url'),
+            'actualResult': data.get('actualResult'),
+            'reportType': data.get('reportType')
+        }
 
+        missing_fields = [k for k, v in required_fields.items() if not v]
+        if missing_fields:
             logger.warning(f"Missing required fields: {', '.join(missing_fields)}")
             return jsonify({
                 'success': False,
                 'error': f'Missing required fields: {", ".join(missing_fields)}'
             }), 400
 
-        logger.info(f"Creating report for URL: {url}")
+        # Validate URL format
+        if not validators.url(required_fields['url']):
+            return jsonify({
+                'success': False,
+                'error': 'Invalid URL format'
+            }), 400
 
-        # Create the report object
         try:
+            # Create the report object
             report = Report(
-                url=url,
-                is_phishing=actual_result == 'phishing',
+                url=required_fields['url'],
+                is_phishing=required_fields['actualResult'] == 'phishing',
                 confidence_score=1.0,  # Default confidence for manual reports
                 reporter_email='anonymous@user.com',
-                report_type=report_type,
+                report_type=required_fields['reportType'],
                 description=data.get('description', ''),
                 expected_result=data.get('expectedResult'),
-                actual_result=actual_result
+                actual_result=required_fields['actualResult']
             )
 
             # Add to session and commit
             db.session.add(report)
             db.session.commit()
-            logger.info(f"Report submitted successfully for URL: {url}")
+            logger.info(f"Report submitted successfully for URL: {required_fields['url']}")
 
             return jsonify({
                 'success': True,
                 'message': 'Report submitted successfully'
             })
+
         except Exception as db_error:
             logger.error(f"Database error while creating report: {str(db_error)}")
             db.session.rollback()
             return jsonify({
                 'success': False,
-                'error': 'Failed to save report to database'
+                'error': 'Database error occurred while saving the report'
             }), 500
 
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
         return jsonify({
             'success': False,
-            'error': 'An unexpected error occurred'
+            'error': 'An unexpected error occurred while processing your request'
         }), 500
 
 @app.route('/analyze', methods=['POST'])
@@ -252,22 +254,14 @@ def analyze_url():
 def view_reports():
     """View all user-submitted reports (excludes automatic search reports)"""
     try:
-        # Only show reports that were manually submitted (excluding 'automatic' reports)
         reports = Report.query.filter(
-            Report.report_type != 'automatic').order_by(
-                Report.reported_at.desc()).all()
-
-        # Ensure description is displayed
-        for report in reports:
-            if not report.description:
-                report.description = "No additional details provided"
+            Report.report_type != 'automatic'
+        ).order_by(Report.reported_at.desc()).all()
 
         return render_template('reports.html', reports=reports)
     except Exception as e:
         logger.error(f"Error fetching reports: {str(e)}")
-        return render_template('reports.html',
-                               reports=[],
-                               error="Error fetching reports")
+        return render_template('reports.html', reports=[], error="Error fetching reports")
 
 @app.route('/api/check', methods=['POST'])
 def check_url():

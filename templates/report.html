@@ -82,52 +82,59 @@
 </div>
 
 <script>
-document.getElementById('reportForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('reportForm');
+    const successAlert = document.getElementById('successAlert');
+    const errorAlert = document.getElementById('errorAlert');
 
-    // Reset alerts
-    document.getElementById('successAlert').classList.add('d-none');
-    document.getElementById('errorAlert').classList.add('d-none');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
 
-    // Get form data and convert to JSON
-    const formData = {
-        reportType: document.getElementById('reportType').value,
-        url: document.getElementById('url').value,
-        expectedResult: document.getElementById('expectedResult').value,
-        actualResult: document.getElementById('actualResult').value,
-        description: document.getElementById('description').value
-    };
+        // Reset alerts
+        successAlert.classList.add('d-none');
+        errorAlert.classList.add('d-none');
 
-    // Send the request
-    fetch('/submit_report', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify(formData)
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+        // Get form data
+        const formData = {
+            reportType: document.getElementById('reportType').value,
+            url: document.getElementById('url').value,
+            expectedResult: document.getElementById('expectedResult').value,
+            actualResult: document.getElementById('actualResult').value,
+            description: document.getElementById('description').value
+        };
+
+        // Validate required fields
+        if (!formData.reportType || !formData.url || !formData.expectedResult || !formData.actualResult) {
+            errorAlert.textContent = 'Please fill in all required fields';
+            errorAlert.classList.remove('d-none');
+            return;
         }
-        return response.json();
-    })
-    .then(data => {
-        if (data.success) {
-            document.getElementById('successAlert').classList.remove('d-none');
-            this.reset();
-            setTimeout(() => {
-                document.getElementById('successAlert').classList.add('d-none');
-            }, 3000);
-        } else {
-            throw new Error(data.error || 'Failed to submit report');
-        }
-    })
-    .catch(error => {
-        const errorAlert = document.getElementById('errorAlert');
-        errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
-        errorAlert.classList.remove('d-none');
+
+        // Send the request
+        fetch('/submit_report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                successAlert.classList.remove('d-none');
+                form.reset();
+                setTimeout(() => {
+                    successAlert.classList.add('d-none');
+                }, 3000);
+            } else {
+                throw new Error(data.error || 'Failed to submit report');
+            }
+        })
+        .catch(error => {
+            errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
+            errorAlert.classList.remove('d-none');
+        });
     });
 });
 </script>
