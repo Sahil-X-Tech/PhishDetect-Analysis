@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof value === 'boolean' || value === 0 || value === 1) {
                 // Convert to Yes/No for both boolean and 0/1 values
                 const isTrue = value === true || value === 1;
-                
+
                 // Special handling for HTTPS - Yes should be green, No should be red
                 if (key === 'HTTPS') {
                     indicator.className = `badge ${isTrue ? 'bg-success' : 'bg-danger'}`;
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // For other metrics keep the existing logic (Yes=danger, No=success)
                     indicator.className = `badge ${isTrue ? 'bg-danger' : 'bg-success'}`;
                 }
-                
+
                 indicator.textContent = isTrue ? 'Yes' : 'No';
             } else if (typeof value === 'number') {
                 indicator.textContent = value;
@@ -88,27 +88,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const urlInput = document.getElementById('urlInput');
             if (!urlInput || !urlInput.value) {
-                if (errorAlert) {
-                    errorAlert.textContent = "Please enter a URL";
-                    errorAlert.classList.remove('d-none');
-                }
+                errorAlert.textContent = "Please enter a URL";
+                errorAlert.classList.remove('d-none');
                 return;
             }
 
             // Reset UI
-            if (loadingSpinner) loadingSpinner.classList.remove('d-none');
-            if (resultsSection) resultsSection.classList.add('d-none');
-            if (errorAlert) errorAlert.classList.add('d-none');
+            loadingSpinner.classList.remove('d-none');
+            resultsSection.classList.add('d-none');
+            errorAlert.classList.add('d-none');
 
             // Prepare form data
             const formData = new FormData();
             formData.append('url', urlInput.value);
-
-            // Get CSRF token if it exists
-            const csrfToken = document.querySelector('input[name="csrf_token"]');
-            if (csrfToken) {
-                formData.append('csrf_token', csrfToken.value);
-            }
 
             // Send request
             fetch('/analyze', {
@@ -117,19 +109,13 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
+                    throw new Error('Error analyzing URL');
                 }
                 return response.json();
             })
             .then(data => {
-                // Hide loading spinner
-                if (loadingSpinner) {
-                    loadingSpinner.classList.add('d-none');
-                }
-
-                if (resultsSection) {
-                    resultsSection.classList.remove('d-none');
-                }
+                loadingSpinner.classList.add('d-none');
+                resultsSection.classList.remove('d-none');
 
                 // Update result indicator
                 const resultText = document.getElementById('resultText');
@@ -159,15 +145,9 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error("Error:", error);
-
-                if (loadingSpinner) {
-                    loadingSpinner.classList.add('d-none');
-                }
-
-                if (errorAlert) {
-                    errorAlert.textContent = "Error analyzing URL. Please try again.";
-                    errorAlert.classList.remove('d-none');
-                }
+                loadingSpinner.classList.add('d-none');
+                errorAlert.textContent = error.message || "Error analyzing URL. Please try again.";
+                errorAlert.classList.remove('d-none');
             });
         });
     }
