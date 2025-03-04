@@ -1,6 +1,6 @@
 import logging
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 import os
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
 from dotenv import load_dotenv
 from phishing_detector import PhishingURLDetector
 import validators
@@ -23,6 +23,9 @@ app.secret_key = os.environ.get("SESSION_SECRET")
 if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
 
 # Database configuration
 DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
@@ -48,7 +51,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 # Initialize extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-csrf = CSRFProtect(app)
+
 
 # Import models after db initialization
 from models import Report, User
@@ -98,6 +101,7 @@ def report():
     return render_template('report.html')
 
 @app.route('/submit_report', methods=['POST'])
+@csrf.exempt  # We'll handle CSRF manually through the form
 def submit_report():
     """Submit a new report"""
     try:
@@ -169,7 +173,7 @@ def submit_report():
         logger.error(f"Error submitting report: {str(e)}")
         return jsonify({
             'success': False,
-            'error': 'An unexpected error occurred while processing your request'
+            'error': str(e)
         }), 500
 
 @app.route('/analyze', methods=['POST'])

@@ -25,6 +25,7 @@
                     <div class="col-md-6">
                         <div class="contact-form">
                             <form id="reportForm">
+                                {{ csrf_token() }}
                                 <div class="mb-3">
                                     <label for="reportType" class="form-label">Report Type</label>
                                     <select class="form-select" id="reportType" name="reportType" required>
@@ -104,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
 
         // Validate required fields
-        if (!formData.reportType || !formData.url || !formData.expectedResult || !formData.actualResult) {
+        if (!formData.reportType || !formData.url || !formData.actualResult) {
             errorAlert.textContent = 'Please fill in all required fields';
             errorAlert.classList.remove('d-none');
             return;
@@ -115,11 +116,17 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': '{{ csrf_token() }}'
             },
             body: JSON.stringify(formData)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 successAlert.classList.remove('d-none');
