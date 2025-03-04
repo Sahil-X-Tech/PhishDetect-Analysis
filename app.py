@@ -5,9 +5,6 @@ import validators
 import urllib.parse
 import tldextract
 import re
-import joblib
-import numpy as np
-from pathlib import Path
 import difflib
 
 # Configure logging
@@ -57,22 +54,11 @@ def check_domain_mimicry(domain, suffix):
         if domain.lower() == legit_domain:
             # Check if TLD is suspicious
             if suffix != legit_suffix:
-                # Check for common TLD typos
-                if legit_suffix in HIGH_RISK_TLD_VARIATIONS and suffix in HIGH_RISK_TLD_VARIATIONS[legit_suffix]:
-                    similar_domains.append(legitimate_domain)
-                    continue
-                # Check for similarity with legitimate TLD
-                if difflib.SequenceMatcher(None, suffix, legit_suffix).ratio() > 0.6:
-                    similar_domains.append(legitimate_domain)
-                    continue
+                similar_domains.append(legitimate_domain)
+                continue
 
-        # Direct hyphen check (more strict)
+        # Direct hyphen check
         if domain.replace('-', '') == legit_domain:
-            similar_domains.append(legitimate_domain)
-            continue
-
-        # Check for hyphen substitution
-        if domain.replace('-', '.') == legitimate_domain:
             similar_domains.append(legitimate_domain)
             continue
 
@@ -91,44 +77,52 @@ def check_domain_mimicry(domain, suffix):
 
 def extract_features(url):
     """Extract features from URL for model prediction"""
-    parsed_url = urllib.parse.urlparse(url)
-    extracted = tldextract.extract(url)
-    path_segments = [segment for segment in parsed_url.path.split('/') if segment]
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+        extracted = tldextract.extract(url)
+        path_segments = [segment for segment in parsed_url.path.split('/') if segment]
 
-    # Check for domain mimicry
-    is_misspelled, similar_domains = check_domain_mimicry(extracted.domain, extracted.suffix)
+        # Check for domain mimicry
+        is_misspelled, similar_domains = check_domain_mimicry(extracted.domain, extracted.suffix)
 
-    # Extract features
-    features = {
-        # URL Structure Features
-        'url_length': len(url),
-        'domain_length': len(extracted.domain),
-        'path_length': len(path_segments),
-        'num_digits': sum(c.isdigit() for c in url),
-        'num_parameters': len(urllib.parse.parse_qs(parsed_url.query)),
-
-        # Security Features
-        'uses_https': parsed_url.scheme == 'https',
-        'has_port': bool(parsed_url.port),
-        'has_special_chars': bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', url)),
-
-        # Suspicious Patterns
-        'has_at_symbol': '@' in url,
-        'has_ip_address': bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain)),
-        'is_misspelled_domain': is_misspelled,
-        'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
-        'is_shortened_url': len(extracted.domain) <= 4 or any(short in extracted.domain for short in ['bit.ly', 'goo.gl', 't.co', 'tiny']),
-        'has_suspicious_tld': extracted.suffix not in LEGITIMATE_TLDS,
-        'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
-        'has_hyphen_in_domain': '-' in extracted.domain,
-        'similar_domains': similar_domains,
-        'has_suspicious_tld_variation': any(
+        # Check for suspicious TLD variations
+        has_suspicious_tld_variation = any(
             extracted.suffix in variations
-            for tld, variations in HIGH_RISK_TLD_VARIATIONS.items()
+            for legitimate_tld, variations in HIGH_RISK_TLD_VARIATIONS.items()
         )
-    }
 
-    return features
+        # Extract features
+        features = {
+            # URL Structure Features
+            'url_length': len(url),
+            'domain_length': len(extracted.domain),
+            'path_length': len(path_segments),
+            'num_digits': sum(c.isdigit() for c in url),
+            'num_parameters': len(urllib.parse.parse_qs(parsed_url.query)),
+
+            # Security Features
+            'uses_https': parsed_url.scheme == 'https',
+            'has_port': bool(parsed_url.port),
+            'has_special_chars': bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', url)),
+
+            # Suspicious Patterns
+            'has_at_symbol': '@' in url,
+            'has_ip_address': bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain)),
+            'is_misspelled_domain': is_misspelled,
+            'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
+            'is_shortened_url': len(extracted.domain) <= 4 or any(short in extracted.domain for short in ['bit.ly', 'goo.gl', 't.co', 'tiny']),
+            'has_suspicious_tld': extracted.suffix not in LEGITIMATE_TLDS,
+            'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
+            'has_hyphen_in_domain': '-' in extracted.domain,
+            'similar_domains': similar_domains,
+            'has_suspicious_tld_variation': has_suspicious_tld_variation
+        }
+
+        return features
+    except Exception as e:
+        logger.error(f"Error extracting features: {str(e)}")
+        return {} # Return an empty dictionary on error
+
 
 @app.route('/')
 def index():
@@ -162,21 +156,21 @@ def analyze_url():
             'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,
             'shortened_url': 2 if features['is_shortened_url'] else 0,
             'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0,
-            'suspicious_tld_variation': 5 if features['has_suspicious_tld_variation'] else 0  # Increased weight
+            'suspicious_tld_variation': 5 if features['has_suspicious_tld_variation'] else 0
         }
 
         max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 5])
         risk_score = sum(risk_factors.values()) / max_score
 
         # Automatic flagging for certain high-risk features
+        is_safe = risk_score < 0.25  # Strict threshold
+
+        # Override safety status for high-risk features
         if (features['is_misspelled_domain'] or 
             features['has_suspicious_tld_variation'] or 
-            (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0) or
-            any(extracted.suffix in variations for tld, variations in HIGH_RISK_TLD_VARIATIONS.items())):  # Direct TLD check
+            features['has_suspicious_tld']):
             is_safe = False
             risk_score = max(risk_score, 0.8)  # Ensure high risk score
-        else:
-            is_safe = risk_score < 0.25  # Strict threshold
 
         response_data = {
             'safe': is_safe,
