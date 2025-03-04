@@ -34,10 +34,10 @@ LEGITIMATE_TLDS = ['com', 'org', 'net', 'edu', 'gov', 'int', 'mil']
 
 # High-risk TLD variations that are commonly used in phishing
 HIGH_RISK_TLD_VARIATIONS = {
-    'com': ['con', 'cm', 'co', 'kom', 'cpm'],
-    'org': ['ogr', 'ord', 'or'],
-    'net': ['ner', 'met', 'et'],
-    'edu': ['edw', 'ed'],
+    'com': ['con', 'cm', 'co', 'kom', 'cpm', 'om', 'corn', 'c0m', 'cam', 'comm'],
+    'org': ['ogr', 'ord', 'or', '0rg', 'orq'],
+    'net': ['ner', 'met', 'et', 'n3t', 'nat'],
+    'edu': ['edw', 'ed', 'edu.co', 'edu.cm'],
 }
 
 def check_domain_mimicry(domain, suffix):
@@ -66,7 +66,7 @@ def check_domain_mimicry(domain, suffix):
                     similar_domains.append(legitimate_domain)
                     continue
 
-        # Direct hyphen check
+        # Direct hyphen check (more strict)
         if domain.replace('-', '') == legit_domain:
             similar_domains.append(legitimate_domain)
             continue
@@ -123,8 +123,8 @@ def extract_features(url):
         'has_hyphen_in_domain': '-' in extracted.domain,
         'similar_domains': similar_domains,
         'has_suspicious_tld_variation': any(
-            extracted.suffix in HIGH_RISK_TLD_VARIATIONS.get(tld, [])
-            for tld in HIGH_RISK_TLD_VARIATIONS.keys()
+            extracted.suffix in variations
+            for tld, variations in HIGH_RISK_TLD_VARIATIONS.items()
         )
     }
 
@@ -162,21 +162,20 @@ def analyze_url():
             'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,
             'shortened_url': 2 if features['is_shortened_url'] else 0,
             'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0,
-            'suspicious_tld_variation': 4 if features['has_suspicious_tld_variation'] else 0
+            'suspicious_tld_variation': 5 if features['has_suspicious_tld_variation'] else 0  # Increased weight
         }
 
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 4])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 5])
         risk_score = sum(risk_factors.values()) / max_score
-
-        # Even stricter thresholds
-        is_safe = risk_score < 0.25
 
         # Automatic flagging for certain high-risk features
         if (features['is_misspelled_domain'] or 
             features['has_suspicious_tld_variation'] or 
             (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0)):
             is_safe = False
-            risk_score = max(risk_score, 0.8)
+            risk_score = max(risk_score, 0.8)  # Ensure high risk score
+        else:
+            is_safe = risk_score < 0.25  # Strict threshold
 
         response_data = {
             'safe': is_safe,
@@ -213,29 +212,25 @@ def analyze_url():
         logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
         return jsonify({'error': 'Error analyzing URL'}), 500
 
+# Keep other routes unchanged
 @app.route('/about')
 def about():
-    """About page with project information"""
     return render_template('about.html')
 
 @app.route('/statistics')
 def statistics():
-    """Statistics page showing analysis metrics"""
     return render_template('statistics.html')
 
 @app.route('/security-guide')
 def security_guide():
-    """Security guide page with phishing prevention tips"""
     return render_template('security-guide.html')
 
 @app.route('/documentation')
 def documentation():
-    """Documentation page with technical details"""
     return render_template('documentation.html')
 
 @app.route('/faq')
 def faq():
-    """FAQ page with common questions"""
     return render_template('faq.html')
 
 if __name__ == '__main__':
