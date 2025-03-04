@@ -24,7 +24,7 @@ if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
 
-# Initialize CSRF protection
+# Initialize CSRF protection (removed from submit_report route)
 csrf = CSRFProtect(app)
 
 # Database configuration
@@ -101,7 +101,6 @@ def report():
     return render_template('report.html')
 
 @app.route('/submit_report', methods=['POST'])
-@csrf.exempt  # We'll handle CSRF manually through the form
 def submit_report():
     """Submit a new report"""
     try:
