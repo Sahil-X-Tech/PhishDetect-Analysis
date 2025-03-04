@@ -1,9 +1,6 @@
 import logging
 import os
 from flask import Flask, render_template, request, jsonify
-from replit import db
-import validators
-from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -22,7 +19,6 @@ if not app.secret_key:
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
-
 
 # Add error handlers to return JSON
 @app.errorhandler(400)

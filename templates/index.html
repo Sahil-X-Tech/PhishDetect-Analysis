@@ -9,7 +9,6 @@
                     <i class="fas fa-shield-alt me-2"></i>URL Security Analysis
                 </h2>
                 <form id="urlForm" class="mb-4">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="input-group">
                         <input type="url" class="form-control" id="urlInput" 
                                placeholder="Enter URL to analyze" required>
@@ -61,48 +60,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Detailed Analysis -->
-            <div class="row">
-                <!-- Security Metrics -->
-                <div class="col-md-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-lock me-2"></i>Security Metrics
-                            </h5>
-                            <p class="text-muted small">Basic security features of the URL</p>
-                            <div id="securityMetrics"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- URL Structure -->
-                <div class="col-md-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-sitemap me-2"></i>URL Structure
-                            </h5>
-                            <p class="text-muted small">Analysis of URL composition</p>
-                            <div id="urlStructure"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Suspicious Patterns -->
-                <div class="col-md-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-exclamation-triangle me-2"></i>Suspicious Patterns
-                            </h5>
-                            <p class="text-muted small">Common phishing indicators</p>
-                            <div id="suspiciousPatterns"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -111,110 +68,4 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-<script>
-document.getElementById('urlForm').addEventListener('submit', function(event) {
-    event.preventDefault();
-    const url = document.getElementById('urlInput').value;
-    document.getElementById('loadingSpinner').classList.remove('d-none');
-    document.getElementById('resultsSection').classList.add('d-none');
-    document.getElementById('errorAlert').classList.add('d-none');
-
-    fetch('/analyze', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: url, csrf_token: '{{ csrf_token() }}' })
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('loadingSpinner').classList.add('d-none');
-        document.getElementById('resultsSection').classList.remove('d-none');
-
-        // Update result indicator
-        const resultText = document.getElementById('resultText');
-        const resultIcon = document.getElementById('resultIndicator').querySelector('i');
-        if (data.safe === false) {
-            resultText.textContent = 'Suspicious';
-            resultText.className = 'mt-2 text-danger';
-            resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
-        } else {
-            resultText.textContent = 'Safe';
-            resultText.className = 'mt-2 text-success';
-            resultIcon.className = 'fas fa-check-circle text-success fa-4x';
-        }
-
-        // Update metrics
-        updateMetrics('securityMetrics', data.security_metrics);
-        updateMetrics('urlStructure', data.url_structure);
-        updateMetrics('suspiciousPatterns', data.suspicious_patterns);
-
-        // Update confidence chart
-        updateConfidenceChart(data.probability_safe, data.probability_phishing);
-    })
-    .catch(error => {
-        document.getElementById('loadingSpinner').classList.add('d-none');
-        const errorAlert = document.getElementById('errorAlert');
-        errorAlert.textContent = error.message || 'Error analyzing URL. Please try again.';
-        errorAlert.classList.remove('d-none');
-    });
-});
-
-function updateMetrics(elementId, metrics) {
-    const container = document.getElementById(elementId);
-    container.innerHTML = '';
-
-    Object.entries(metrics).forEach(([key, value]) => {
-        const row = document.createElement('div');
-        row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
-
-        const label = document.createElement('span');
-        label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-        const indicator = document.createElement('span');
-        if (typeof value === 'boolean') {
-            indicator.className = `badge ${value ? 'bg-danger' : 'bg-success'}`;
-            indicator.textContent = value ? 'Yes' : 'No';
-        } else if (typeof value === 'number') {
-            indicator.textContent = value;
-        }
-
-        row.appendChild(label);
-        row.appendChild(indicator);
-        container.appendChild(row);
-    });
-}
-
-function updateConfidenceChart(safeProbability, phishingProbability) {
-    const ctx = document.getElementById('confidenceChart').getContext('2d');
-
-    // Destroy existing chart if it exists
-    if (confidenceChart instanceof Chart) {
-        confidenceChart.destroy();
-    }
-
-    confidenceChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Safe', 'Suspicious'],
-            datasets: [{
-                data: [safeProbability * 100, phishingProbability * 100],
-                backgroundColor: ['#198754', '#dc3545']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                title: {
-                    display: true,
-                    text: 'Confidence Score'
-                }
-            }
-        }
-    });
-}
-</script>
 {% endblock %}
