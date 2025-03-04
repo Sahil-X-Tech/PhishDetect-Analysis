@@ -43,8 +43,7 @@
 
                                 <div class="mb-3">
                                     <label for="expectedResult" class="form-label">Expected Result</label>
-                                    <select class="form-select" id="expectedResult" name="expectedResult" required>
-                                        <option value="">Select expected result</option>
+                                    <select class="form-select" id="expectedResult" name="expectedResult">
                                         <option value="safe">Safe</option>
                                         <option value="phishing">Phishing</option>
                                     </select>
@@ -53,7 +52,6 @@
                                 <div class="mb-3">
                                     <label for="actualResult" class="form-label">Actual Result</label>
                                     <select class="form-select" id="actualResult" name="actualResult" required>
-                                        <option value="">Select actual result</option>
                                         <option value="safe">Safe</option>
                                         <option value="phishing">Phishing</option>
                                     </select>
@@ -87,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const successAlert = document.getElementById('successAlert');
     const errorAlert = document.getElementById('errorAlert');
 
-    form.addEventListener('submit', function(e) {
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
 
         // Reset alerts
@@ -100,32 +98,21 @@ document.addEventListener('DOMContentLoaded', function() {
             url: document.getElementById('url').value,
             expectedResult: document.getElementById('expectedResult').value,
             actualResult: document.getElementById('actualResult').value,
-            description: document.getElementById('description').value
+            description: document.getElementById('description').value || ''
         };
 
-        // Validate required fields
-        if (!formData.reportType || !formData.url || !formData.actualResult) {
-            errorAlert.textContent = 'Please fill in all required fields';
-            errorAlert.classList.remove('d-none');
-            return;
-        }
+        try {
+            const response = await fetch('/submit_report', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
 
-        // Send the request
-        fetch('/submit_report', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => Promise.reject(err));
-            }
-            return response.json();
-        })
-        .then(data => {
+            const data = await response.json();
+
             if (data.success) {
                 successAlert.classList.remove('d-none');
                 form.reset();
@@ -135,11 +122,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 throw new Error(data.error || 'Failed to submit report');
             }
-        })
-        .catch(error => {
+        } catch (error) {
             errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
             errorAlert.classList.remove('d-none');
-        });
+        }
     });
 });
 </script>
