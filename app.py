@@ -1,14 +1,42 @@
-import os
 import logging
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+import psycopg2
+import os
+from dotenv import load_dotenv
 from phishing_detector import PhishingURLDetector
 import validators
 from datetime import datetime
-from database import db, app as db_app
+from database import db
+# app as db_app
 from models import Report, User
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+# from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
 from urllib.parse import urlparse, parse_qs
+
+app = Flask(__name__)
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+
+@app.route('/submit', methods=['post'])
+def submit_report():
+    data = request.json
+    conn = psycopg2.connect(DATABASE_URL)
+    cur.execute(
+        """INSERT INTO reports(report_type,url,expected_result,actual_result, additional_details)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (data['report_type'], data['url'], data['expected_result'],
+          data['actual_result'], data['additional_details']))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": "Report submitted successfully"}), 201
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -17,63 +45,64 @@ logger = logging.getLogger(__name__)
 # Use the app instance from database.py
 app = db_app
 
-# Configure secret key
-app.secret_key = os.environ.get("SESSION_SECRET")
-if not app.secret_key:
-    logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
-    app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
-    
-# Configure database - get from environment or use the render URL
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    logger.warning("No DATABASE_URL found in environment, using fallback Render database URL")
-    DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
+# # Configure secret key
+# app.secret_key = os.environ.get("SESSION_SECRET")
+# if not app.secret_key:
+#     logger.warning(
+#         "SESSION_SECRET not set. Using fallback secret key for development.")
+#     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
 
-# Fix Render Postgres URL format if needed
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    logger.info("Updated DATABASE_URL format for SQLAlchemy compatibility")
+# # Configure database - get from environment or use the render URL
+# DATABASE_URL = os.environ.get("DATABASE_URL")
+# if not DATABASE_URL:
+#     logger.warning(
+#         "No DATABASE_URL found in environment, using fallback Render database URL"
+#     )
+#     DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
 
-# Parse the URL to check if sslmode is already present
-parsed_url = urlparse(DATABASE_URL)
-query_params = parse_qs(parsed_url.query)
+# # Fix Render Postgres URL format if needed
+# if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+#     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+#     logger.info("Updated DATABASE_URL format for SQLAlchemy compatibility")
 
-# Only add sslmode if it's not already in the URL and if it's a postgres URL
-if 'postgres' in DATABASE_URL and 'sslmode' not in query_params:
-    if "?" not in DATABASE_URL:
-        DATABASE_URL += "?sslmode=require"
-    else:
-        DATABASE_URL += "&sslmode=require"
+# # Parse the URL to check if sslmode is already present
+# parsed_url = urlparse(DATABASE_URL)
+# query_params = parse_qs(parsed_url.query)
 
-# Configure SQLAlchemy
-app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_size": 5,       # Allow up to 5 connections
-    "pool_recycle": 1800, # Recycle connections every 30 minutes
-    "pool_pre_ping": True, # Test connections before using
-    "connect_args": {
-        "connect_timeout": 10,  # Increase connection timeout
-        "keepalives": 1,        # Enable keepalives
-        "keepalives_idle": 30,  # Idle time before sending keepalives
-        "keepalives_interval": 10,  # Interval between keepalives
-        "keepalives_count": 5   # Number of keepalives before closing
-    }
-}
+# # Only add sslmode if it's not already in the URL and if it's a postgres URL
+# if 'postgres' in DATABASE_URL and 'sslmode' not in query_params:
+#     if "?" not in DATABASE_URL:
+#         DATABASE_URL += "?sslmode=require"
+#     else:
+#         DATABASE_URL += "&sslmode=require"
+
+# # Configure SQLAlchemy
+# app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+# app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+#     "pool_size": 5,  # Allow up to 5 connections
+#     "pool_recycle": 1800,  # Recycle connections every 30 minutes
+#     "pool_pre_ping": True,  # Test connections before using
+#     "connect_args": {
+#         "connect_timeout": 10,  # Increase connection timeout
+#         "keepalives": 1,  # Enable keepalives
+#         "keepalives_idle": 30,  # Idle time before sending keepalives
+#         "keepalives_interval": 10,  # Interval between keepalives
+#         "keepalives_count": 5  # Number of keepalives before closing
+#     }
+# }
 
 # Initialize CSRF protection
 csrf = CSRFProtect(app)
 
-# Initialize Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
+# # Initialize Flask-Login
+# login_manager = LoginManager()
+# login_manager.init_app(app)
+# login_manager.login_view = 'login'
 
-
-@login_manager.user_loader
-def load_user(id):
-    return User.query.get(int(id))
-
+# @login_manager.user_loader
+# def load_user(id):
+#     return User.query.get(int(id))
 
 # Update the model loading section
 try:
@@ -86,49 +115,46 @@ except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     detector = None
 
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+#         password = request.form.get('password')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+#         user = User.query.filter_by(email=email).first()
+#         if user and user.check_password(password):
+#             login_user(user, remember=request.form.get('remember', False))
+#             return redirect(url_for('index'))
 
-        user = User.query.filter_by(email=email).first()
-        if user and user.check_password(password):
-            login_user(user, remember=request.form.get('remember', False))
-            return redirect(url_for('index'))
+#         flash('Invalid email or password')
+#     return render_template('login.html')
 
-        flash('Invalid email or password')
-    return render_template('login.html')
+# @app.route('/register', methods=['GET', 'POST'])
+# def register():
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         email = request.form.get('email')
+#         password = request.form.get('password')
 
+#         if User.query.filter_by(email=email).first():
+#             flash('Email already registered')
+#             return render_template('register.html')
 
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
+#         user = User(username=username, email=email)
+#         user.set_password(password)
+#         db.session.add(user)
+#         db.session.commit()
 
-        if User.query.filter_by(email=email).first():
-            flash('Email already registered')
-            return render_template('register.html')
+#         flash('Registration successful! Please login.')
+#         return redirect(url_for('login'))
 
-        user = User(username=username, email=email)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
+#     return render_template('register.html')
 
-        flash('Registration successful! Please login.')
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('login'))
+# @app.route('/logout')
+# @login_required
+# def logout():
+#     logout_user()
+#     return redirect(url_for('login'))
 
 
 @app.route('/')
@@ -303,22 +329,25 @@ def submit_report():
             data = request.json
         else:
             data = request.form
-            
+
         url = data.get('url')
         actual_result = data.get('actualResult')
         report_type = data.get('reportType')
 
         # Validate required fields
         if not url or not actual_result or not report_type:
-            logger.warning(f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}")
+            logger.warning(
+                f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}"
+            )
             return jsonify({
                 'success': False,
                 'error': 'Missing required fields'
             }), 400
 
         # Log the submission attempt
-        logger.info(f"Attempting to submit report for URL: {url}, type: {report_type}")
-        
+        logger.info(
+            f"Attempting to submit report for URL: {url}, type: {report_type}")
+
         # Create the report object
         report = Report(
             url=url,
@@ -329,7 +358,7 @@ def submit_report():
             description=data.get('description', ''),
             expected_result=data.get('expectedResult', ''),
             actual_result=actual_result)
-            
+
         # Add to session and commit with proper error handling
         try:
             db.session.add(report)
@@ -342,7 +371,10 @@ def submit_report():
         except Exception as commit_error:
             logger.error(f"Database commit error: {str(commit_error)}")
             db.session.rollback()
-            return jsonify({'success': False, 'error': f'Database error: {str(commit_error)}'}), 500
+            return jsonify({
+                'success': False,
+                'error': f'Database error: {str(commit_error)}'
+            }), 500
     except Exception as e:
         logger.error(f"Error submitting report: {str(e)}")
         if 'db' in globals() and hasattr(db, 'session'):
@@ -395,25 +427,24 @@ def delete_selected_reports():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def create_admin_user():
-    """Create admin user if it doesn't exist"""
-    admin = User.query.filter_by(email='admin@phishingdetector.com').first()
-    if not admin:
-        admin = User(username='admin',
-                     email='admin@phishingdetector.com',
-                     is_admin=True)
-        admin.set_password('Sahilkhan123')
-        db.session.add(admin)
-        db.session.commit()
-        logger.info("Admin user created successfully")
+# def create_admin_user():
+#     """Create admin user if it doesn't exist"""
+#     admin = User.query.filter_by(email='admin@phishingdetector.com').first()
+#     if not admin:
+#         admin = User(username='admin',
+#                      email='admin@phishingdetector.com',
+#                      is_admin=True)
+#         admin.set_password('Sahilkhan123')
+#         db.session.add(admin)
+#         db.session.commit()
+#         logger.info("Admin user created successfully")
 
+# @app.teardown_appcontext
+# def shutdown_session(exception=None):
+#     db.session.remove()
 
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    db.session.remove()
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        create_admin_user()
-    app.run(host='0.0.0.0', port=8080, debug=True)
+# if __name__ == '__main__':
+#     with app.app_context():
+#         db.create_all()
+#         create_admin_user()
+#     app.run(host='0.0.0.0', port=8080, debug=True)

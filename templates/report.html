@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+<!-- {% extends "base.html" %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -73,12 +73,12 @@
                             </form>
 
                             <!-- Success Alert -->
-                            <div id="successAlert" class="alert alert-success mt-3 d-none">
+                            <!-- <div id="successAlert" class="alert alert-success mt-3 d-none">
                                 Report submitted successfully!
                             </div>
 
                             <!-- Error Alert -->
-                            <div id="errorAlert" class="alert alert-danger mt-3 d-none"></div>
+                            <!-- <div id="errorAlert" class="alert alert-danger mt-3 d-none"></div>
                         </div>
                     </div>
                 </div>
@@ -86,8 +86,8 @@
         </div>
     </div>
 </div>
-
-<script>
+ -->
+<!-- <script>
 document.getElementById('reportForm').addEventListener('submit', function(e) {
     e.preventDefault();
 
@@ -120,24 +120,161 @@ document.getElementById('reportForm').addEventListener('submit', function(e) {
             
             // Get the submit button and add the message after it
             const submitButton = document.querySelector('#reportForm button[type="submit"]');
-            submitButton.insertAdjacentElement('afterend', successMessage);
+            submitButton.insertAdjacentElement('afterend', successMessage); -->
             
-            // Clear form
-            this.reset();
+            <!-- // Clear form
+            // this.reset();
             
             // Remove the success message after 3 seconds
-            setTimeout(() => {
-                successMessage.remove();
-            }, 3000);
+//             setTimeout(() => {
+//                 successMessage.remove();
+//             }, 3000);
+//         } else {
+//             throw new Error(data.error || 'Failed to submit report');
+//         }
+//     })
+//     .catch(error => {
+//         const errorAlert = document.getElementById('errorAlert'); -->
+<!-- //         errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
+//         errorAlert.classList.remove('d-none');
+//     });
+// });
+// </script>
+
+// <script> -->
+<!-- //   async function submitReport() {
+//     const data = {
+//       report_type: document.getElementById("report_type").value,
+//       url: document.getElementById("url").value,
+//       expected_result: document.getElementById("expected_result").value,
+//       actual_result: document.getElementById("actual_result").value,
+//       additional_details: document.getElementById("additional_details").value
+//     };
+
+//     const response = await fetch("/submit", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify(data)
+//     });
+
+//     const result = await response.json();
+//     alert(result.message);
+//   }
+// </script>
+
+<!-- // {% endblock %} -->
+
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">
+                    <i class="fas fa-flag me-2"></i>Report an Issue
+                </h2>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="alert alert-info">
+                            <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Why Report?</h5>
+                            <ul class="mb-0">
+                                <li>Improve detection accuracy</li>
+                                <li>Update our ML models</li>
+                                <li>Identify new phishing patterns</li>
+                                <li>Protect other users</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="contact-form">
+                            <form id="reportForm">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="mb-3">
+                                    <label for="reportType" class="form-label">Report Type</label>
+                                    <select class="form-select" id="reportType" name="reportType" required>
+                                        <option value="">Select issue type</option>
+                                        <option value="false_positive">False Positive</option>
+                                        <option value="false_negative">False Negative</option>
+                                        <option value="technical">Technical Issue</option>
+                                        <option value="suggestion">Suggestion</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="url" class="form-label">URL</label>
+                                    <input type="url" class="form-control" id="url" name="url" placeholder="Enter the URL" required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="expectedResult" class="form-label">Expected Result</label>
+                                    <select class="form-select" id="expectedResult" name="expectedResult" required>
+                                        <option value="">Select expected result</option>
+                                        <option value="safe">Safe</option>
+                                        <option value="phishing">Phishing</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="actualResult" class="form-label">Actual Result</label>
+                                    <select class="form-select" id="actualResult" name="actualResult" required>
+                                        <option value="">Select actual result</option>
+                                        <option value="safe">Safe</option>
+                                        <option value="phishing">Phishing</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="description" class="form-label">Additional Details</label>
+                                    <textarea class="form-control" id="description" name="description" rows="4" placeholder="Please provide any additional information that might help us investigate"></textarea>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit Report
+                                </button>
+                            </form>
+
+                            <div id="successAlert" class="alert alert-success mt-3 d-none">Report submitted successfully!</div>
+                            <div id="errorAlert" class="alert alert-danger mt-3 d-none"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('reportForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Reset alerts
+    document.getElementById('successAlert').classList.add('d-none');
+    document.getElementById('errorAlert').classList.add('d-none');
+
+    const formData = new FormData(this);
+    try {
+        const response = await fetch('/submit_report', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('successAlert').classList.remove('d-none');
+            this.reset();
+            setTimeout(() => document.getElementById('successAlert').classList.add('d-none'), 3000);
         } else {
             throw new Error(data.error || 'Failed to submit report');
         }
-    })
-    .catch(error => {
+    } catch (error) {
         const errorAlert = document.getElementById('errorAlert');
-        errorAlert.textContent = error.message || 'Error submitting report. Please try again.';
+        errorAlert.textContent = error.message;
         errorAlert.classList.remove('d-none');
-    });
+    }
 });
 </script>
 {% endblock %}
