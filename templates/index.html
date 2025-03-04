@@ -60,6 +60,48 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Detailed Analysis -->
+            <div class="row">
+                <!-- Security Metrics -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-lock me-2"></i>Security Metrics
+                            </h5>
+                            <p class="text-muted small">Basic security features of the URL</p>
+                            <div id="securityMetrics"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- URL Structure -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-sitemap me-2"></i>URL Structure
+                            </h5>
+                            <p class="text-muted small">Analysis of URL composition</p>
+                            <div id="urlStructure"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suspicious Patterns -->
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Suspicious Patterns
+                            </h5>
+                            <p class="text-muted small">Common phishing indicators</p>
+                            <div id="suspiciousPatterns"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -67,5 +109,138 @@
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+let confidenceChart = null;
+
+document.getElementById('urlForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const urlInput = document.getElementById('urlInput');
+    if (!urlInput || !urlInput.value) {
+        const errorAlert = document.getElementById('errorAlert');
+        errorAlert.textContent = "Please enter a URL";
+        errorAlert.classList.remove('d-none');
+        return;
+    }
+
+    // Reset UI
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('resultsSection').classList.add('d-none');
+    document.getElementById('errorAlert').classList.add('d-none');
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('url', urlInput.value);
+
+    // Send request
+    fetch('/analyze', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error analyzing URL');
+        }
+        return response.json();
+    })
+    .then(data => {
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        document.getElementById('resultsSection').classList.remove('d-none');
+
+        // Update result indicator
+        const resultText = document.getElementById('resultText');
+        const resultIcon = document.querySelector('#resultIndicator i');
+
+        if (data.safe === false) {
+            resultText.textContent = 'Potential Phishing';
+            resultText.className = 'mt-2 text-danger';
+            resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
+        } else {
+            resultText.textContent = 'Safe';
+            resultText.className = 'mt-2 text-success';
+            resultIcon.className = 'fas fa-check-circle text-success fa-4x';
+        }
+
+        // Update metrics
+        updateMetrics('securityMetrics', data.security_metrics);
+        updateMetrics('urlStructure', data.url_structure);
+        updateMetrics('suspiciousPatterns', data.suspicious_patterns);
+
+        // Update confidence chart
+        updateConfidenceChart(data.probability_safe * 100, data.probability_phishing * 100);
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        document.getElementById('loadingSpinner').classList.add('d-none');
+        const errorAlert = document.getElementById('errorAlert');
+        errorAlert.textContent = error.message || "Error analyzing URL. Please try again.";
+        errorAlert.classList.remove('d-none');
+    });
+});
+
+function updateMetrics(elementId, metrics) {
+    const container = document.getElementById(elementId);
+    container.innerHTML = '';
+
+    Object.entries(metrics).forEach(([key, value]) => {
+        const row = document.createElement('div');
+        row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
+
+        const label = document.createElement('span');
+        label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        const indicator = document.createElement('span');
+        if (typeof value === 'boolean') {
+            if (key === 'HTTPS') {
+                indicator.className = `badge ${value ? 'bg-success' : 'bg-danger'}`;
+            } else {
+                indicator.className = `badge ${value ? 'bg-danger' : 'bg-success'}`;
+            }
+            indicator.textContent = value ? 'Yes' : 'No';
+        } else {
+            indicator.textContent = value;
+        }
+
+        row.appendChild(label);
+        row.appendChild(indicator);
+        container.appendChild(row);
+    });
+}
+
+function updateConfidenceChart(safePercentage, phishingPercentage) {
+    const ctx = document.getElementById('confidenceChart').getContext('2d');
+
+    if (confidenceChart) {
+        confidenceChart.destroy();
+    }
+
+    confidenceChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Safe', 'Phishing'],
+            datasets: [{
+                data: [safePercentage, phishingPercentage],
+                backgroundColor: ['#28a745', '#dc3545'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.raw.toFixed(1) + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
 {% endblock %}
