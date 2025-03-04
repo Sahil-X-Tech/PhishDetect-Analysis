@@ -3,10 +3,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingSpinner = document.getElementById('loadingSpinner');
     const resultsSection = document.getElementById('resultsSection');
     const errorAlert = document.getElementById('errorAlert');
-    const reportForm = document.getElementById('reportForm');
     let confidenceChart = null;
 
-    // Initialize Chart.js if we need to display a chart
+    function updateMetrics(elementId, metrics) {
+        const container = document.getElementById(elementId);
+        container.innerHTML = '';
+
+        Object.entries(metrics).forEach(([key, value]) => {
+            const row = document.createElement('div');
+            row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
+
+            const label = document.createElement('span');
+            label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+            const indicator = document.createElement('span');
+            if (typeof value === 'boolean') {
+                // Special handling for security features - Yes is good (green), No is bad (red)
+                if (key === 'HTTPS' || key === 'Special Characters') {
+                    indicator.className = `badge ${value ? 'bg-success' : 'bg-danger'}`;
+                } else {
+                    // For suspicious patterns - Yes is bad (red), No is good (green)
+                    indicator.className = `badge ${value ? 'bg-danger' : 'bg-success'}`;
+                }
+                indicator.textContent = value ? 'Yes' : 'No';
+            } else {
+                indicator.textContent = value;
+            }
+
+            row.appendChild(label);
+            row.appendChild(indicator);
+            container.appendChild(row);
+        });
+    }
+
     function updateConfidenceChart(safePercentage, phishingPercentage) {
         const ctx = document.getElementById('confidenceChart').getContext('2d');
 
@@ -29,10 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cutout: '70%',
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#ffffff'
-                        }
+                        position: 'bottom'
                     },
                     tooltip: {
                         callbacks: {
@@ -43,42 +69,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             }
-        });
-    }
-
-    // Function to update metric cards
-    function updateMetrics(elementId, metrics) {
-        const container = document.getElementById(elementId);
-        container.innerHTML = '';
-
-        Object.entries(metrics).forEach(([key, value]) => {
-            const row = document.createElement('div');
-            row.className = 'metric-row d-flex justify-content-between align-items-center py-2';
-
-            const label = document.createElement('span');
-            label.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-            const indicator = document.createElement('span');
-            if (typeof value === 'boolean' || value === 0 || value === 1) {
-                // Convert to Yes/No for both boolean and 0/1 values
-                const isTrue = value === true || value === 1;
-
-                // Special handling for HTTPS - Yes should be green, No should be red
-                if (key === 'HTTPS') {
-                    indicator.className = `badge ${isTrue ? 'bg-success' : 'bg-danger'}`;
-                } else {
-                    // For other metrics keep the existing logic (Yes=danger, No=success)
-                    indicator.className = `badge ${isTrue ? 'bg-danger' : 'bg-success'}`;
-                }
-
-                indicator.textContent = isTrue ? 'Yes' : 'No';
-            } else if (typeof value === 'number') {
-                indicator.textContent = value;
-            }
-
-            row.appendChild(label);
-            row.appendChild(indicator);
-            container.appendChild(row);
         });
     }
 
@@ -121,16 +111,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const resultText = document.getElementById('resultText');
                 const resultIcon = document.querySelector('#resultIndicator i');
 
-                if (resultText && resultIcon) {
-                    if (data.prediction === 'phishing') {
-                        resultText.textContent = 'Potential Phishing';
-                        resultText.className = 'mt-2 text-danger';
-                        resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
-                    } else {
-                        resultText.textContent = 'Safe';
-                        resultText.className = 'mt-2 text-success';
-                        resultIcon.className = 'fas fa-check-circle text-success fa-4x';
-                    }
+                if (data.safe === false) {
+                    resultText.textContent = 'Potential Phishing';
+                    resultText.className = 'mt-2 text-danger';
+                    resultIcon.className = 'fas fa-exclamation-triangle text-danger fa-4x';
+                } else {
+                    resultText.textContent = 'Safe';
+                    resultText.className = 'mt-2 text-success';
+                    resultIcon.className = 'fas fa-check-circle text-success fa-4x';
                 }
 
                 // Update metrics
@@ -138,9 +126,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateMetrics('urlStructure', data.url_structure);
                 updateMetrics('suspiciousPatterns', data.suspicious_patterns);
 
-                // Update confidence chart if available
-                if (typeof Chart !== 'undefined' && document.getElementById('confidenceChart')) {
-                    updateConfidenceChart(data.probability_safe * 100, data.probability_phishing * 100);
+                // Update confidence chart
+                updateConfidenceChart(data.probability_safe * 100, data.probability_phishing * 100);
+
+                // Show similar domain warning if available
+                if (data.similar_to) {
+                    const warning = document.createElement('div');
+                    warning.className = 'alert alert-danger mt-3';
+                    warning.innerHTML = `<strong>Warning:</strong> This domain appears to be mimicking: ${data.similar_to.join(', ')}`;
+                    resultsSection.querySelector('.card-body').appendChild(warning);
                 }
             })
             .catch(error => {
@@ -151,92 +145,4 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
-    // Report form submission
-    if (reportForm) {
-        reportForm.addEventListener("submit", function(e) {
-            e.preventDefault();
-
-            const formData = new FormData(reportForm);
-
-            fetch("/submit_report", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert("Report submitted successfully!");
-                    reportForm.reset();
-                } else {
-                    alert("Error submitting report: " + data.error);
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                alert("Error submitting report. Please try again.");
-            });
-        });
-    }
 });
-
-// Helper function to update metrics tables
-function updateMetricsTable(tableId, metrics) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const tbody = table.querySelector("tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    for (const [key, value] of Object.entries(metrics)) {
-        const row = document.createElement("tr");
-        row.className = "metric-row";
-
-        const keyCell = document.createElement("td");
-        keyCell.textContent = key;
-
-        const valueCell = document.createElement("td");
-        valueCell.className = "text-end";
-
-        if (typeof value === "boolean") {
-            const badge = document.createElement("span");
-            badge.className = value ? "badge bg-danger" : "badge bg-success";
-            badge.textContent = value ? "Yes" : "No";
-            valueCell.appendChild(badge);
-        } else {
-            valueCell.textContent = value;
-        }
-
-        row.appendChild(keyCell);
-        row.appendChild(valueCell);
-        tbody.appendChild(row);
-    }
-}
-
-// Update the confidence chart
-function updateConfidenceChartOld(safeProb, phishingProb) {
-    const chartContainer = document.getElementById("confidenceChart");
-    if (!chartContainer) return;
-
-    // Clear previous chart
-    chartContainer.innerHTML = "";
-
-    // Create the chart using a simple div representation
-    const safePct = Math.round(safeProb * 100);
-    const phishingPct = Math.round(phishingProb * 100);
-
-    chartContainer.innerHTML = `
-        <div class="progress" style="height: 20px;">
-            <div class="progress-bar bg-success" role="progressbar" style="width: ${safePct}%" 
-                aria-valuenow="${safePct}" aria-valuemin="0" aria-valuemax="100">
-                ${safePct}% Safe
-            </div>
-            <div class="progress-bar bg-danger" role="progressbar" style="width: ${phishingPct}%" 
-                aria-valuenow="${phishingPct}" aria-valuemin="0" aria-valuemax="100">
-                ${phishingPct}% Phishing
-            </div>
-        </div>
-    `;
-}
