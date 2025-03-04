@@ -32,6 +32,14 @@ LEGITIMATE_DOMAINS = [
 # Common legitimate TLDs
 LEGITIMATE_TLDS = ['com', 'org', 'net', 'edu', 'gov', 'int', 'mil']
 
+# High-risk TLD variations that are commonly used in phishing
+HIGH_RISK_TLD_VARIATIONS = {
+    'com': ['con', 'cm', 'co', 'kom', 'cpm'],
+    'org': ['ogr', 'ord', 'or'],
+    'net': ['ner', 'met', 'et'],
+    'edu': ['edw', 'ed'],
+}
+
 def check_domain_mimicry(domain, suffix):
     """Enhanced domain mimicry detection"""
     domain_with_suffix = f"{domain}.{suffix}"
@@ -49,8 +57,14 @@ def check_domain_mimicry(domain, suffix):
         if domain.lower() == legit_domain:
             # Check if TLD is suspicious
             if suffix != legit_suffix:
-                similar_domains.append(legitimate_domain)
-                continue
+                # Check for common TLD typos
+                if legit_suffix in HIGH_RISK_TLD_VARIATIONS and suffix in HIGH_RISK_TLD_VARIATIONS[legit_suffix]:
+                    similar_domains.append(legitimate_domain)
+                    continue
+                # Check for similarity with legitimate TLD
+                if difflib.SequenceMatcher(None, suffix, legit_suffix).ratio() > 0.6:
+                    similar_domains.append(legitimate_domain)
+                    continue
 
         # Direct hyphen check
         if domain.replace('-', '') == legit_domain:
@@ -61,12 +75,6 @@ def check_domain_mimicry(domain, suffix):
         if domain.replace('-', '.') == legitimate_domain:
             similar_domains.append(legitimate_domain)
             continue
-
-        # TLD typo check (e.g., .con instead of .com)
-        if domain.lower() == legit_domain and suffix != legit_suffix:
-            if difflib.SequenceMatcher(None, suffix, legit_suffix).ratio() > 0.66:
-                similar_domains.append(legitimate_domain)
-                continue
 
         # Check for close misspellings
         similarity = difflib.SequenceMatcher(None, domain.lower(), legit_domain).ratio()
@@ -113,7 +121,12 @@ def extract_features(url):
         'has_suspicious_tld': extracted.suffix not in LEGITIMATE_TLDS,
         'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
         'has_hyphen_in_domain': '-' in extracted.domain,
-        'similar_domains': similar_domains
+        'similar_domains': similar_domains,
+        'has_suspicious_tld_variation': any(
+            suffix in HIGH_RISK_TLD_VARIATIONS.get(legit_suffix, [])
+            for legit_suffix in HIGH_RISK_TLD_VARIATIONS.keys()
+            if extracted.suffix == suffix
+        )
     }
 
     return features
@@ -142,19 +155,22 @@ def analyze_url():
             'multiple_subdomains': 2 if features['has_multiple_subdomains'] else 0,
             'special_chars': 1 if features['has_special_chars'] else 0,
             'at_symbol': 2 if features['has_at_symbol'] else 0,
-            'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,  # Increased weight
+            'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,
             'shortened_url': 2 if features['is_shortened_url'] else 0,
-            'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0
+            'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0,
+            'suspicious_tld_variation': 4 if features['has_suspicious_tld_variation'] else 0  # New weight for TLD variations
         }
 
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 4])
         risk_score = sum(risk_factors.values()) / max_score
 
         # Even stricter thresholds
         is_safe = risk_score < 0.25
 
         # Automatic flagging for certain high-risk features
-        if features['is_misspelled_domain'] or (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0):
+        if (features['is_misspelled_domain'] or 
+            features['has_suspicious_tld_variation'] or 
+            (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0)):
             is_safe = False
             risk_score = max(risk_score, 0.8)
 
