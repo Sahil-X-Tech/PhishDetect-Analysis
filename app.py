@@ -1,249 +1,152 @@
 import logging
 from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
-import psycopg2
 import os
 from dotenv import load_dotenv
 from phishing_detector import PhishingURLDetector
 import validators
 from datetime import datetime
-from database import db
-# app as db_app
-from models import Report, User
-# from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 from urllib.parse import urlparse, parse_qs
-
-app = Flask(__name__)
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-
-@app.route('/submit', methods=['post'])
-def submit_report():
-    data = request.json
-    conn = psycopg2.connect(DATABASE_URL)
-    cur.execute(
-        """INSERT INTO reports(report_type,url,expected_result,actual_result, additional_details)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (data['report_type'], data['url'], data['expected_result'],
-          data['actual_result'], data['additional_details']))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"message": "Report submitted successfully"}), 201
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Use the app instance from database.py
-app = db_app
+# Initialize Flask app
+app = Flask(__name__)
+load_dotenv()
 
-# # Configure secret key
-# app.secret_key = os.environ.get("SESSION_SECRET")
-# if not app.secret_key:
-#     logger.warning(
-#         "SESSION_SECRET not set. Using fallback secret key for development.")
-#     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
+# Configure app
+app.secret_key = os.environ.get("SESSION_SECRET")
+if not app.secret_key:
+    logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
+    app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
 
-# # Configure database - get from environment or use the render URL
-# DATABASE_URL = os.environ.get("DATABASE_URL")
-# if not DATABASE_URL:
-#     logger.warning(
-#         "No DATABASE_URL found in environment, using fallback Render database URL"
-#     )
-#     DATABASE_URL = "postgresql://phishing_db_user:ffBzIYjtFjLrRbdfjlXzYSRKX9xIzzCX@dpg-cv3126bqf0us7382uu5g-a.oregon-postgres.render.com/phishing_db"
+# Database configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 5,
+    "pool_recycle": 1800,
+    "pool_pre_ping": True,
+    "connect_args": {
+        "connect_timeout": 10,
+        "keepalives": 1,
+        "keepalives_idle": 30,
+        "keepalives_interval": 10,
+        "keepalives_count": 5
+    }
+}
 
-# # Fix Render Postgres URL format if needed
-# if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-#     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-#     logger.info("Updated DATABASE_URL format for SQLAlchemy compatibility")
-
-# # Parse the URL to check if sslmode is already present
-# parsed_url = urlparse(DATABASE_URL)
-# query_params = parse_qs(parsed_url.query)
-
-# # Only add sslmode if it's not already in the URL and if it's a postgres URL
-# if 'postgres' in DATABASE_URL and 'sslmode' not in query_params:
-#     if "?" not in DATABASE_URL:
-#         DATABASE_URL += "?sslmode=require"
-#     else:
-#         DATABASE_URL += "&sslmode=require"
-
-# # Configure SQLAlchemy
-# app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
-# app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-# app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-#     "pool_size": 5,  # Allow up to 5 connections
-#     "pool_recycle": 1800,  # Recycle connections every 30 minutes
-#     "pool_pre_ping": True,  # Test connections before using
-#     "connect_args": {
-#         "connect_timeout": 10,  # Increase connection timeout
-#         "keepalives": 1,  # Enable keepalives
-#         "keepalives_idle": 30,  # Idle time before sending keepalives
-#         "keepalives_interval": 10,  # Interval between keepalives
-#         "keepalives_count": 5  # Number of keepalives before closing
-#     }
-# }
-
-# Initialize CSRF protection
+# Initialize extensions
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 csrf = CSRFProtect(app)
 
-# # Initialize Flask-Login
-# login_manager = LoginManager()
-# login_manager.init_app(app)
-# login_manager.login_view = 'login'
+# Import models after db initialization
+from models import Report, User
 
-# @login_manager.user_loader
-# def load_user(id):
-#     return User.query.get(int(id))
-
-# Update the model loading section
+# Initialize phishing detector
 try:
     detector = PhishingURLDetector()
-    detector.load_models(
-        'phishing_detector.joblib'
-    )  # Changed from 'attached_assets/phishing_detector.joblib'
+    detector.load_models('phishing_detector.joblib')
     logger.info("Model loaded successfully")
 except Exception as e:
     logger.error(f"Error loading model: {str(e)}")
     detector = None
-
-# @app.route('/login', methods=['GET', 'POST'])
-# def login():
-#     if request.method == 'POST':
-#         email = request.form.get('email')
-#         password = request.form.get('password')
-
-#         user = User.query.filter_by(email=email).first()
-#         if user and user.check_password(password):
-#             login_user(user, remember=request.form.get('remember', False))
-#             return redirect(url_for('index'))
-
-#         flash('Invalid email or password')
-#     return render_template('login.html')
-
-# @app.route('/register', methods=['GET', 'POST'])
-# def register():
-#     if request.method == 'POST':
-#         username = request.form.get('username')
-#         email = request.form.get('email')
-#         password = request.form.get('password')
-
-#         if User.query.filter_by(email=email).first():
-#             flash('Email already registered')
-#             return render_template('register.html')
-
-#         user = User(username=username, email=email)
-#         user.set_password(password)
-#         db.session.add(user)
-#         db.session.commit()
-
-#         flash('Registration successful! Please login.')
-#         return redirect(url_for('login'))
-
-#     return render_template('register.html')
-
-# @app.route('/logout')
-# @login_required
-# def logout():
-#     logout_user()
-#     return redirect(url_for('login'))
-
 
 @app.route('/')
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
 
-
 @app.route('/about')
 def about():
     """About page with project information"""
     return render_template('about.html')
-
 
 @app.route('/security-guide')
 def security_guide():
     """Security guide page with phishing prevention tips"""
     return render_template('security-guide.html')
 
-
 @app.route('/statistics')
 def statistics():
     """Statistics page showing detection metrics"""
     return render_template('statistics.html')
-
 
 @app.route('/documentation')
 def documentation():
     """Documentation page with technical details"""
     return render_template('documentation.html')
 
-
 @app.route('/faq')
 def faq():
     """FAQ page with common questions"""
     return render_template('faq.html')
-
 
 @app.route('/report')
 def report():
     """Report page for false positives/negatives"""
     return render_template('report.html')
 
-
-@app.route('/api/check', methods=['POST'])
-def check_url():
-    """Simple API endpoint to check if a URL is phishing"""
-    data = request.json
-    url = data.get("url")
-
-    if not url:
-        return jsonify({"error": "No URL provided"}), 400
-
-    # 🔹 Replace this with your actual phishing detection logic
-    is_phishing = "phish" in url.lower()
-
-    return jsonify({"url": url, "is_phishing": is_phishing})
-
-
-@app.route('/reports')
-def view_reports():
-    """View all user-submitted reports (excludes automatic search reports)"""
+@app.route('/submit_report', methods=['POST'])
+def submit_report():
+    """Submit a new report"""
     try:
-        # Only show reports that were manually submitted (excluding 'automatic' reports)
-        reports = Report.query.filter(
-            Report.report_type != 'automatic').order_by(
-                Report.reported_at.desc()).all()
+        # Check if form data or JSON data
+        if request.is_json:
+            data = request.json
+        else:
+            data = request.form
 
-        # Ensure description is displayed
-        for report in reports:
-            if not report.description:
-                report.description = "No additional details provided"
+        url = data.get('url')
+        actual_result = data.get('actualResult')
+        report_type = data.get('reportType')
 
-        return render_template('reports.html', reports=reports)
+        # Validate required fields
+        if not url or not actual_result or not report_type:
+            logger.warning(
+                f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}"
+            )
+            return jsonify({
+                'success': False,
+                'error': 'Missing required fields'
+            }), 400
+
+        # Create the report object
+        report = Report(
+            url=url,
+            is_phishing=actual_result == 'phishing',
+            confidence_score=1.0,  # Default confidence for manual reports
+            reporter_email=data.get('email', "anonymous@user.com"),
+            report_type=report_type,
+            description=data.get('description', ''),
+            expected_result=data.get('expectedResult', ''),
+            actual_result=actual_result)
+
+        # Add to session and commit
+        db.session.add(report)
+        db.session.commit()
+        logger.info(f"Report submitted successfully for URL: {url}")
+        return jsonify({
+            'success': True,
+            'message': 'Report submitted successfully'
+        })
     except Exception as e:
-        logger.error(f"Error fetching reports: {str(e)}")
-        return render_template('reports.html',
-                               reports=[],
-                               error="Error fetching reports")
-
+        logger.error(f"Error submitting report: {str(e)}")
+        if 'db' in globals() and hasattr(db, 'session'):
+            db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
     """Analyze URL for phishing detection"""
     try:
         if detector is None:
-            return jsonify(
-                {'error':
-                 'Model not initialized. Please try again later.'}), 500
+            return jsonify({'error': 'Model not initialized. Please try again later.'}), 500
 
         url = request.form.get('url', '').strip()
 
@@ -286,23 +189,23 @@ def analyze_url():
 
         # Save report to database
         try:
-            report = Report(url=url,
-                            is_phishing=result['prediction'] == 'phishing',
-                            confidence_score=result['confidence'],
-                            reporter_email="anonymous@user.com",
-                            report_type='automatic',
-                            actual_result=result['prediction'])
+            report = Report(
+                url=url,
+                is_phishing=result['prediction'] == 'phishing',
+                confidence_score=result['confidence'],
+                reporter_email="anonymous@user.com",
+                report_type='automatic',
+                actual_result=result['prediction']
+            )
             db.session.add(report)
             db.session.commit()
         except Exception as db_error:
             logger.error(f"Error saving report to database: {str(db_error)}")
-            # Continue with the analysis even if saving to DB fails
 
         response = {
             'prediction': result['prediction'],
             'confidence': round(result['confidence'] * 100, 2),
-            'probability_phishing': round(result['probability_phishing'] * 100,
-                                          2),
+            'probability_phishing': round(result['probability_phishing'] * 100, 2),
             'probability_safe': round(result['probability_safe'] * 100, 2),
             'security_metrics': security_metrics,
             'url_structure': url_structure,
@@ -310,76 +213,46 @@ def analyze_url():
         }
 
         logger.info(f"Analysis completed for URL: {url}")
-        logger.debug(f"Prediction result: {result}")
-
         return jsonify(response)
 
     except Exception as e:
         logger.error(f"Error analyzing URL: {str(e)}")
-        return jsonify({'error':
-                        'Error analyzing URL. Please try again.'}), 500
+        return jsonify({'error': 'Error analyzing URL. Please try again.'}), 500
 
-
-@app.route('/submit_report', methods=['POST'])
-def submit_report():
-    """Submit a new report"""
+@app.route('/reports')
+def view_reports():
+    """View all user-submitted reports (excludes automatic search reports)"""
     try:
-        # Check if form data or JSON data
-        if request.is_json:
-            data = request.json
-        else:
-            data = request.form
+        # Only show reports that were manually submitted (excluding 'automatic' reports)
+        reports = Report.query.filter(
+            Report.report_type != 'automatic').order_by(
+                Report.reported_at.desc()).all()
 
-        url = data.get('url')
-        actual_result = data.get('actualResult')
-        report_type = data.get('reportType')
+        # Ensure description is displayed
+        for report in reports:
+            if not report.description:
+                report.description = "No additional details provided"
 
-        # Validate required fields
-        if not url or not actual_result or not report_type:
-            logger.warning(
-                f"Missing required fields in report submission: url={url}, actual_result={actual_result}, report_type={report_type}"
-            )
-            return jsonify({
-                'success': False,
-                'error': 'Missing required fields'
-            }), 400
-
-        # Log the submission attempt
-        logger.info(
-            f"Attempting to submit report for URL: {url}, type: {report_type}")
-
-        # Create the report object
-        report = Report(
-            url=url,
-            is_phishing=actual_result == 'phishing',
-            confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email=data.get('email', "anonymous@user.com"),
-            report_type=report_type,
-            description=data.get('description', ''),
-            expected_result=data.get('expectedResult', ''),
-            actual_result=actual_result)
-
-        # Add to session and commit with proper error handling
-        try:
-            db.session.add(report)
-            db.session.commit()
-            logger.info(f"Report submitted successfully for URL: {url}")
-            return jsonify({
-                'success': True,
-                'message': 'Report submitted successfully'
-            })
-        except Exception as commit_error:
-            logger.error(f"Database commit error: {str(commit_error)}")
-            db.session.rollback()
-            return jsonify({
-                'success': False,
-                'error': f'Database error: {str(commit_error)}'
-            }), 500
+        return render_template('reports.html', reports=reports)
     except Exception as e:
-        logger.error(f"Error submitting report: {str(e)}")
-        if 'db' in globals() and hasattr(db, 'session'):
-            db.session.rollback()  # Rollback transaction on error
-        return jsonify({'success': False, 'error': f'Error: {str(e)}'}), 500
+        logger.error(f"Error fetching reports: {str(e)}")
+        return render_template('reports.html',
+                               reports=[],
+                               error="Error fetching reports")
+
+@app.route('/api/check', methods=['POST'])
+def check_url():
+    """Simple API endpoint to check if a URL is phishing"""
+    data = request.json
+    url = data.get("url")
+
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+
+    # 🔹 Replace this with your actual phishing detection logic
+    is_phishing = "phish" in url.lower()
+
+    return jsonify({"url": url, "is_phishing": is_phishing})
 
 
 @app.route('/delete_reports', methods=['POST'])
@@ -426,25 +299,7 @@ def delete_selected_reports():
         logger.error(f"Error deleting selected reports: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
-# def create_admin_user():
-#     """Create admin user if it doesn't exist"""
-#     admin = User.query.filter_by(email='admin@phishingdetector.com').first()
-#     if not admin:
-#         admin = User(username='admin',
-#                      email='admin@phishingdetector.com',
-#                      is_admin=True)
-#         admin.set_password('Sahilkhan123')
-#         db.session.add(admin)
-#         db.session.commit()
-#         logger.info("Admin user created successfully")
-
-# @app.teardown_appcontext
-# def shutdown_session(exception=None):
-#     db.session.remove()
-
-# if __name__ == '__main__':
-#     with app.app_context():
-#         db.create_all()
-#         create_admin_user()
-#     app.run(host='0.0.0.0', port=8080, debug=True)
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(host='0.0.0.0', port=5000, debug=True)
