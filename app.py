@@ -24,8 +24,40 @@ if not app.secret_key:
 # List of common legitimate domains for similarity checking
 LEGITIMATE_DOMAINS = [
     'google.com', 'facebook.com', 'youtube.com', 'amazon.com', 'microsoft.com',
-    'apple.com', 'netflix.com', 'twitter.com', 'instagram.com', 'linkedin.com'
+    'apple.com', 'netflix.com', 'twitter.com', 'instagram.com', 'linkedin.com',
+    'gmail.com', 'yahoo.com', 'outlook.com', 'github.com', 'paypal.com'
 ]
+
+def check_domain_mimicry(domain, suffix):
+    """Enhanced domain mimicry detection"""
+    domain_with_suffix = f"{domain}.{suffix}"
+
+    # Check for exact matches with legitimate domains
+    if domain_with_suffix.lower() in LEGITIMATE_DOMAINS:
+        return False, []
+
+    similar_domains = []
+    for legitimate_domain in LEGITIMATE_DOMAINS:
+        # Direct comparison without the TLD
+        legit_domain = legitimate_domain.split('.')[0]
+
+        # Check for hyphen substitution (e.g., google-com vs google.com)
+        if domain.replace('-', '.') == legitimate_domain:
+            similar_domains.append(legitimate_domain)
+            continue
+
+        # Check for close misspellings using sequence matcher
+        similarity = difflib.SequenceMatcher(None, domain.lower(), legit_domain).ratio()
+        if similarity > 0.8:
+            similar_domains.append(legitimate_domain)
+
+        # Check for character substitution (like 0 for o, 1 for l)
+        normalized_domain = domain.lower().replace('0', 'o').replace('1', 'l')
+        normalized_legit = legit_domain.lower()
+        if normalized_domain == normalized_legit:
+            similar_domains.append(legitimate_domain)
+
+    return len(similar_domains) > 0, similar_domains
 
 def extract_features(url):
     """Extract features from URL for model prediction"""
@@ -33,15 +65,10 @@ def extract_features(url):
     extracted = tldextract.extract(url)
     path_segments = [segment for segment in parsed_url.path.split('/') if segment]
 
-    # Check for domain similarity with legitimate domains
-    domain_with_suffix = f"{extracted.domain}.{extracted.suffix}"
-    similar_domains = []
-    for legitimate_domain in LEGITIMATE_DOMAINS:
-        similarity = difflib.SequenceMatcher(None, domain_with_suffix.lower(), legitimate_domain).ratio()
-        if similarity > 0.8 and domain_with_suffix.lower() != legitimate_domain:
-            similar_domains.append(legitimate_domain)
+    # Check for domain mimicry
+    is_misspelled, similar_domains = check_domain_mimicry(extracted.domain, extracted.suffix)
 
-    # Extract basic features
+    # Extract features
     features = {
         # URL Structure Features
         'url_length': len(url),
@@ -58,20 +85,16 @@ def extract_features(url):
         # Suspicious Patterns
         'has_at_symbol': '@' in url,
         'has_ip_address': bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain)),
-        'is_misspelled_domain': len(similar_domains) > 0,
+        'is_misspelled_domain': is_misspelled,
         'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
         'is_shortened_url': len(extracted.domain) <= 4 or any(short in extracted.domain for short in ['bit.ly', 'goo.gl', 't.co', 'tiny']),
         'has_suspicious_tld': extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml', 'ga', 'cf', 'gq', 'nl'],
         'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
-        'has_suspicious_patterns': bool(re.search(r'(auth|log[io]n|verify|secure|account|update|service|confirm)', url.lower()))
+        'has_hyphen_in_domain': '-' in extracted.domain,
+        'similar_domains': similar_domains
     }
 
     return features
-
-@app.route('/')
-def index():
-    """Home page with URL analysis functionality"""
-    return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
@@ -87,26 +110,34 @@ def analyze_url():
         logger.debug(f"Analyzing URL: {url}")
         features = extract_features(url)
 
-        # Calculate risk score based on weighted features
+        # Enhanced risk scoring with higher weights for critical indicators
         risk_factors = {
             'url_length': 1 if features['url_length'] > 75 else 0,
-            'has_suspicious_keywords': 3 if features['has_suspicious_keywords'] else 0,
+            'has_suspicious_keywords': 2 if features['has_suspicious_keywords'] else 0,
             'no_https': 0 if features['uses_https'] else 2,
             'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
             'ip_address': 3 if features['has_ip_address'] else 0,
             'multiple_subdomains': 2 if features['has_multiple_subdomains'] else 0,
             'special_chars': 1 if features['has_special_chars'] else 0,
             'at_symbol': 2 if features['has_at_symbol'] else 0,
-            'misspelled_domain': 3 if features['is_misspelled_domain'] else 0,
+            'misspelled_domain': 4 if features['is_misspelled_domain'] else 0,  # Increased weight
             'shortened_url': 2 if features['is_shortened_url'] else 0,
-            'suspicious_patterns': 2 if features['has_suspicious_patterns'] else 0
+            'hyphen_in_domain': 2 if features['has_hyphen_in_domain'] else 0
         }
 
-        max_score = sum(x for x in [1, 3, 2, 2, 3, 2, 1, 2, 3, 2, 2])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 4, 2, 2])
         risk_score = sum(risk_factors.values()) / max_score
 
+        # Lower the safe threshold to be more strict
+        is_safe = risk_score < 0.3  # More strict threshold
+
+        # If domain mimicry is detected, override the safety status
+        if features['is_misspelled_domain']:
+            is_safe = False
+            risk_score = max(risk_score, 0.7)  # Ensure high risk score for domain mimicry
+
         response_data = {
-            'safe': risk_score < 0.4,
+            'safe': is_safe,
             'probability_safe': float(1 - risk_score),
             'probability_phishing': float(risk_score),
             'security_metrics': {
@@ -129,12 +160,21 @@ def analyze_url():
             }
         }
 
+        # Add similar domain information if available
+        if features['similar_domains']:
+            response_data['similar_to'] = features['similar_domains']
+
         logger.debug(f"Response data: {response_data}")
         return jsonify(response_data)
 
     except Exception as e:
         logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
         return jsonify({'error': 'Error analyzing URL'}), 500
+
+@app.route('/')
+def index():
+    """Home page with URL analysis functionality"""
+    return render_template('index.html')
 
 @app.route('/about')
 def about():
