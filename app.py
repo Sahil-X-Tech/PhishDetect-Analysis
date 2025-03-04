@@ -20,6 +20,26 @@ def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
 
+@app.route('/about')
+def about():
+    """About page with project information"""
+    return render_template('about.html')
+
+@app.route('/security-guide')
+def security_guide():
+    """Security guide page with phishing prevention tips"""
+    return render_template('security-guide.html')
+
+@app.route('/documentation')
+def documentation():
+    """Documentation page with technical details"""
+    return render_template('documentation.html')
+
+@app.route('/faq')
+def faq():
+    """FAQ page with common questions"""
+    return render_template('faq.html')
+
 # Add error handlers to return JSON
 @app.errorhandler(400)
 @app.errorhandler(404)
