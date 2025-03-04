@@ -37,7 +37,7 @@ HIGH_RISK_TLD_VARIATIONS = {
     'com': ['con', 'cm', 'co', 'kom', 'cpm', 'om', 'corn', 'c0m', 'cam', 'comm'],
     'org': ['ogr', 'ord', 'or', '0rg', 'orq'],
     'net': ['ner', 'met', 'et', 'n3t', 'nat'],
-    'edu': ['edw', 'ed', 'edu.co', 'edu.cm'],
+    'edu': ['edw', 'ed', 'edu.co', 'edu.cm']
 }
 
 def check_domain_mimicry(domain, suffix):
@@ -171,7 +171,8 @@ def analyze_url():
         # Automatic flagging for certain high-risk features
         if (features['is_misspelled_domain'] or 
             features['has_suspicious_tld_variation'] or 
-            (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0)):
+            (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0) or
+            any(extracted.suffix in variations for tld, variations in HIGH_RISK_TLD_VARIATIONS.items())):  # Direct TLD check
             is_safe = False
             risk_score = max(risk_score, 0.8)  # Ensure high risk score
         else:
@@ -212,7 +213,6 @@ def analyze_url():
         logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
         return jsonify({'error': 'Error analyzing URL'}), 500
 
-# Keep other routes unchanged
 @app.route('/about')
 def about():
     return render_template('about.html')
