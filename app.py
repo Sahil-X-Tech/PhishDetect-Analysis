@@ -29,6 +29,9 @@ LEGITIMATE_DOMAINS = [
 # Common legitimate TLDs
 LEGITIMATE_TLDS = ['com', 'org', 'net', 'edu', 'gov', 'int', 'mil']
 
+# Government domains are always considered legitimate
+GOVERNMENT_TLDS = ['gov', 'gov.in', 'gov.uk', 'gov.au', 'gov.ca', 'gc.ca', 'gov.sg']
+
 # High-risk TLD variations that are commonly used in phishing
 HIGH_RISK_TLD_VARIATIONS = {
     'com': ['con', 'cm', 'co', 'kom', 'cpm', 'om', 'corn', 'c0m', 'cam', 'comm'],
@@ -45,6 +48,10 @@ def check_domain_mimicry(domain, suffix):
     if domain_with_suffix.lower() in LEGITIMATE_DOMAINS:
         return False, []
 
+    # Check if it's a government domain
+    if any(suffix.endswith(gov_tld) for gov_tld in GOVERNMENT_TLDS):
+        return False, []
+
     similar_domains = []
     for legitimate_domain in LEGITIMATE_DOMAINS:
         legit_domain = legitimate_domain.split('.')[0]
@@ -56,11 +63,6 @@ def check_domain_mimicry(domain, suffix):
             if suffix != legit_suffix:
                 similar_domains.append(legitimate_domain)
                 continue
-
-        # Direct hyphen check
-        if domain.replace('-', '') == legit_domain:
-            similar_domains.append(legitimate_domain)
-            continue
 
         # Check for close misspellings
         similarity = difflib.SequenceMatcher(None, domain.lower(), legit_domain).ratio()
@@ -74,6 +76,10 @@ def check_domain_mimicry(domain, suffix):
             similar_domains.append(legitimate_domain)
 
     return len(similar_domains) > 0, similar_domains
+
+def is_government_domain(suffix):
+    """Check if the domain is a legitimate government domain"""
+    return any(suffix.endswith(gov_tld) for gov_tld in GOVERNMENT_TLDS)
 
 def extract_features(url):
     """Extract features from URL for model prediction"""
@@ -90,6 +96,9 @@ def extract_features(url):
             extracted.suffix in variations
             for legitimate_tld, variations in HIGH_RISK_TLD_VARIATIONS.items()
         )
+
+        # Determine if it's a government domain
+        is_gov_domain = is_government_domain(extracted.suffix)
 
         # Extract features
         features = {
@@ -111,18 +120,18 @@ def extract_features(url):
             'is_misspelled_domain': is_misspelled,
             'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
             'is_shortened_url': len(extracted.domain) <= 4 or any(short in extracted.domain for short in ['bit.ly', 'goo.gl', 't.co', 'tiny']),
-            'has_suspicious_tld': extracted.suffix not in LEGITIMATE_TLDS,
+            'has_suspicious_tld': not (extracted.suffix in LEGITIMATE_TLDS or is_gov_domain),
             'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
             'has_hyphen_in_domain': '-' in extracted.domain,
             'similar_domains': similar_domains,
-            'has_suspicious_tld_variation': has_suspicious_tld_variation
+            'has_suspicious_tld_variation': has_suspicious_tld_variation,
+            'is_government_domain': is_gov_domain
         }
 
         return features
     except Exception as e:
         logger.error(f"Error extracting features: {str(e)}")
-        return {} # Return an empty dictionary on error
-
+        return {}
 
 @app.route('/')
 def index():
@@ -162,15 +171,19 @@ def analyze_url():
         max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 5])
         risk_score = sum(risk_factors.values()) / max_score
 
-        # Automatic flagging for certain high-risk features
-        is_safe = risk_score < 0.25  # Strict threshold
+        # Government domains are considered safe by default
+        if features['is_government_domain']:
+            is_safe = True
+            risk_score = min(risk_score, 0.2)  # Ensure low risk score for government domains
+        else:
+            is_safe = risk_score < 0.25  # Strict threshold for non-government domains
 
-        # Override safety status for high-risk features
-        if (features['is_misspelled_domain'] or 
-            features['has_suspicious_tld_variation'] or 
-            features['has_suspicious_tld']):
-            is_safe = False
-            risk_score = max(risk_score, 0.8)  # Ensure high risk score
+            # Override safety status for high-risk features
+            if (features['is_misspelled_domain'] or 
+                features['has_suspicious_tld_variation'] or 
+                features['has_suspicious_tld']):
+                is_safe = False
+                risk_score = max(risk_score, 0.8)  # Ensure high risk score
 
         response_data = {
             'safe': is_safe,
