@@ -18,7 +18,7 @@ if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
 
-# List of common legitimate domains for similarity checking
+# Update LEGITIMATE_DOMAINS list
 LEGITIMATE_DOMAINS = [
     'google.com', 'facebook.com', 'youtube.com', 'amazon.com', 'microsoft.com',
     'apple.com', 'netflix.com', 'twitter.com', 'instagram.com', 'linkedin.com',
@@ -40,6 +40,9 @@ HIGH_RISK_TLD_VARIATIONS = {
     'edu': ['edw', 'ed', 'edu.co', 'edu.cm']
 }
 
+# Common phishing domain suffixes
+SUSPICIOUS_DOMAIN_SUFFIXES = ['-free', '-premium', '-login', '-verify', '-secure', '-vip']
+
 def check_domain_mimicry(domain, suffix):
     """Enhanced domain mimicry detection"""
     domain_with_suffix = f"{domain}.{suffix}"
@@ -53,13 +56,23 @@ def check_domain_mimicry(domain, suffix):
         return False, []
 
     similar_domains = []
+
+    # Check for suspicious suffixes
+    if any(suspicious_suffix in domain.lower() for suspicious_suffix in SUSPICIOUS_DOMAIN_SUFFIXES):
+        base_domain = domain.lower()
+        for suspicious_suffix in SUSPICIOUS_DOMAIN_SUFFIXES:
+            if suspicious_suffix in base_domain:
+                clean_domain = base_domain.replace(suspicious_suffix, '')
+                for legitimate_domain in LEGITIMATE_DOMAINS:
+                    if clean_domain in legitimate_domain:
+                        similar_domains.append(legitimate_domain)
+
     for legitimate_domain in LEGITIMATE_DOMAINS:
         legit_domain = legitimate_domain.split('.')[0]
         legit_suffix = legitimate_domain.split('.')[1]
 
         # Direct domain comparison (case-insensitive)
         if domain.lower() == legit_domain:
-            # Check if TLD is suspicious
             if suffix != legit_suffix:
                 similar_domains.append(legitimate_domain)
                 continue
@@ -77,10 +90,6 @@ def check_domain_mimicry(domain, suffix):
 
     return len(similar_domains) > 0, similar_domains
 
-def is_government_domain(suffix):
-    """Check if the domain is a legitimate government domain"""
-    return any(suffix.endswith(gov_tld) for gov_tld in GOVERNMENT_TLDS)
-
 def extract_features(url):
     """Extract features from URL for model prediction"""
     try:
@@ -97,10 +106,16 @@ def extract_features(url):
             for legitimate_tld, variations in HIGH_RISK_TLD_VARIATIONS.items()
         )
 
-        # Determine if it's a government domain
-        is_gov_domain = is_government_domain(extracted.suffix)
+        # Check for adult content and suspicious patterns
+        adult_content_keywords = r'porn|xxx|adult|sex|nude|naked|cam'
+        has_adult_content = bool(re.search(adult_content_keywords, extracted.domain.lower()))
 
-        # Extract features
+        # Check for suspicious domain patterns
+        has_suspicious_suffix = any(suffix in extracted.domain.lower() for suffix in SUSPICIOUS_DOMAIN_SUFFIXES)
+
+        # Determine if it's a government domain
+        is_gov_domain = any(extracted.suffix.endswith(gov_tld) for gov_tld in GOVERNMENT_TLDS)
+
         features = {
             # URL Structure Features
             'url_length': len(url),
@@ -123,6 +138,8 @@ def extract_features(url):
             'has_suspicious_tld': not (extracted.suffix in LEGITIMATE_TLDS or is_gov_domain),
             'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
             'has_hyphen_in_domain': '-' in extracted.domain,
+            'has_adult_content': has_adult_content,
+            'has_suspicious_suffix': has_suspicious_suffix,
             'similar_domains': similar_domains,
             'has_suspicious_tld_variation': has_suspicious_tld_variation,
             'is_government_domain': is_gov_domain
@@ -165,10 +182,12 @@ def analyze_url():
             'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,
             'shortened_url': 2 if features['is_shortened_url'] else 0,
             'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0,
-            'suspicious_tld_variation': 5 if features['has_suspicious_tld_variation'] else 0
+            'suspicious_tld_variation': 4 if features['has_suspicious_tld_variation'] else 0,
+            'adult_content': 4 if features['has_adult_content'] else 0,
+            'suspicious_suffix': 3 if features['has_suspicious_suffix'] else 0
         }
 
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 5])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3, 4, 4, 3])
         risk_score = sum(risk_factors.values()) / max_score
 
         # Government domains are considered safe by default
@@ -181,7 +200,10 @@ def analyze_url():
             # Override safety status for high-risk features
             if (features['is_misspelled_domain'] or 
                 features['has_suspicious_tld_variation'] or 
-                features['has_suspicious_tld']):
+                features['has_suspicious_tld'] or
+                features['has_adult_content'] or
+                features['has_suspicious_suffix'] or
+                (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0)):
                 is_safe = False
                 risk_score = max(risk_score, 0.8)  # Ensure high risk score
 
