@@ -25,7 +25,8 @@ if not app.secret_key:
 LEGITIMATE_DOMAINS = [
     'google.com', 'facebook.com', 'youtube.com', 'amazon.com', 'microsoft.com',
     'apple.com', 'netflix.com', 'twitter.com', 'instagram.com', 'linkedin.com',
-    'gmail.com', 'yahoo.com', 'outlook.com', 'github.com', 'paypal.com'
+    'gmail.com', 'yahoo.com', 'outlook.com', 'github.com', 'paypal.com',
+    'openai.com', 'openai.org', 'chatgpt.com', 'anthropic.com', 'claude.ai'
 ]
 
 def check_domain_mimicry(domain, suffix):
@@ -38,17 +39,26 @@ def check_domain_mimicry(domain, suffix):
 
     similar_domains = []
     for legitimate_domain in LEGITIMATE_DOMAINS:
-        # Direct comparison without the TLD
         legit_domain = legitimate_domain.split('.')[0]
+        legit_suffix = legitimate_domain.split('.')[1]
 
-        # Check for hyphen substitution (e.g., google-com vs google.com)
+        # Direct hyphen check (more strict)
+        if domain.replace('-', '') == legit_domain:
+            similar_domains.append(legitimate_domain)
+            continue
+
+        # Check for hyphen substitution (e.g., openai-org vs openai.org)
         if domain.replace('-', '.') == legitimate_domain:
             similar_domains.append(legitimate_domain)
             continue
 
         # Check for close misspellings using sequence matcher
         similarity = difflib.SequenceMatcher(None, domain.lower(), legit_domain).ratio()
-        if similarity > 0.8:
+        if similarity > 0.75:  # Lowered threshold to be more strict
+            similar_domains.append(legitimate_domain)
+
+        # Check if the domain tries to include the TLD in the domain name
+        if domain.lower().replace('-', '.').startswith(f"{legit_domain}.{legit_suffix}"):
             similar_domains.append(legitimate_domain)
 
         # Check for character substitution (like 0 for o, 1 for l)
@@ -120,21 +130,21 @@ def analyze_url():
             'multiple_subdomains': 2 if features['has_multiple_subdomains'] else 0,
             'special_chars': 1 if features['has_special_chars'] else 0,
             'at_symbol': 2 if features['has_at_symbol'] else 0,
-            'misspelled_domain': 4 if features['is_misspelled_domain'] else 0,  # Increased weight
+            'misspelled_domain': 5 if features['is_misspelled_domain'] else 0,  # Increased weight further
             'shortened_url': 2 if features['is_shortened_url'] else 0,
-            'hyphen_in_domain': 2 if features['has_hyphen_in_domain'] else 0
+            'hyphen_in_domain': 3 if features['has_hyphen_in_domain'] else 0  # Increased weight for hyphens
         }
 
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 4, 2, 2])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 2, 1, 2, 5, 2, 3])
         risk_score = sum(risk_factors.values()) / max_score
 
-        # Lower the safe threshold to be more strict
-        is_safe = risk_score < 0.3  # More strict threshold
+        # More strict thresholds
+        is_safe = risk_score < 0.25  # Even stricter threshold
 
-        # If domain mimicry is detected, override the safety status
-        if features['is_misspelled_domain']:
+        # Automatic flagging for certain high-risk features
+        if features['is_misspelled_domain'] or (features['has_hyphen_in_domain'] and len(features['similar_domains']) > 0):
             is_safe = False
-            risk_score = max(risk_score, 0.7)  # Ensure high risk score for domain mimicry
+            risk_score = max(risk_score, 0.8)  # Higher risk score for domain mimicry
 
         response_data = {
             'safe': is_safe,
