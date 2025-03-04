@@ -20,6 +20,11 @@ def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
 
+@app.route('/statistics')
+def statistics():
+    """Statistics page showing analysis metrics"""
+    return render_template('statistics.html')
+
 @app.route('/about')
 def about():
     """About page with project information"""
