@@ -101,11 +101,15 @@ def report():
 def submit_report():
     """Submit a new report"""
     try:
-        # Check if form data or JSON data
-        if request.is_json:
-            data = request.json
-        else:
-            data = request.form
+        # Get JSON data from request
+        data = request.get_json()
+
+        if not data:
+            logger.error("No JSON data received in request")
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
 
         url = data.get('url')
         actual_result = data.get('actualResult')
@@ -121,21 +125,25 @@ def submit_report():
                 'error': 'Missing required fields'
             }), 400
 
+        logger.info(f"Creating report for URL: {url}")
+
         # Create the report object
         report = Report(
             url=url,
             is_phishing=actual_result == 'phishing',
             confidence_score=1.0,  # Default confidence for manual reports
-            reporter_email=data.get('email', "anonymous@user.com"),
+            reporter_email=data.get('email', 'anonymous@user.com'),
             report_type=report_type,
             description=data.get('description', ''),
             expected_result=data.get('expectedResult', ''),
-            actual_result=actual_result)
+            actual_result=actual_result
+        )
 
         # Add to session and commit
         db.session.add(report)
         db.session.commit()
         logger.info(f"Report submitted successfully for URL: {url}")
+
         return jsonify({
             'success': True,
             'message': 'Report submitted successfully'
@@ -144,7 +152,10 @@ def submit_report():
         logger.error(f"Error submitting report: {str(e)}")
         if 'db' in globals() and hasattr(db, 'session'):
             db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': f'Error submitting report: {str(e)}'
+        }), 500
 
 @app.route('/analyze', methods=['POST'])
 def analyze_url():
