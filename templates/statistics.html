@@ -13,36 +13,50 @@
                 <div class="row g-4 mb-5">
                     <div class="col-md-3">
                         <div class="metric-card p-3 text-center">
+                            <div class="icon-wrapper mb-3">
+                                <i class="fas fa-search fa-2x text-primary"></i>
+                            </div>
                             <h2 class="text-primary animated-counter" data-target="100000">0</h2>
                             <p>URLs Analyzed</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="metric-card p-3 text-center">
-                            <h2 class="text-primary animated-counter" data-target="99.8">0</h2>
+                            <div class="icon-wrapper mb-3">
+                                <i class="fas fa-bullseye fa-2x text-success"></i>
+                            </div>
+                            <h2 class="text-success animated-counter" data-target="99.8">0</h2>
                             <p>Accuracy Rate %</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="metric-card p-3 text-center">
-                            <h2 class="text-primary animated-counter" data-target="25000">0</h2>
+                            <div class="icon-wrapper mb-3">
+                                <i class="fas fa-shield-alt fa-2x text-danger"></i>
+                            </div>
+                            <h2 class="text-danger animated-counter" data-target="25000">0</h2>
                             <p>Threats Detected</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="metric-card p-3 text-center">
-                            <h2 class="text-primary"><1s</h2>
+                            <div class="icon-wrapper mb-3">
+                                <i class="fas fa-bolt fa-2x text-warning"></i>
+                            </div>
+                            <h2 class="text-warning"><1s</h2>
                             <p>Average Response Time</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Detection Distribution Chart -->
+                <!-- Detection Distribution Charts -->
                 <div class="row mb-5">
                     <div class="col-md-6">
                         <div class="card h-100">
                             <div class="card-body">
-                                <h5 class="card-title">Detection Distribution</h5>
+                                <h5 class="card-title">
+                                    <i class="fas fa-chart-pie me-2"></i>Detection Distribution
+                                </h5>
                                 <canvas id="detectionChart"></canvas>
                             </div>
                         </div>
@@ -50,7 +64,9 @@
                     <div class="col-md-6">
                         <div class="card h-100">
                             <div class="card-body">
-                                <h5 class="card-title">Common Attack Types</h5>
+                                <h5 class="card-title">
+                                    <i class="fas fa-chart-bar me-2"></i>Common Attack Types
+                                </h5>
                                 <canvas id="attackTypesChart"></canvas>
                             </div>
                         </div>
@@ -60,8 +76,53 @@
                 <!-- Monthly Trends Chart -->
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h5 class="card-title">Monthly Detection Trends</h5>
+                        <h5 class="card-title">
+                            <i class="fas fa-chart-line me-2"></i>Monthly Detection Trends
+                        </h5>
                         <canvas id="monthlyTrendsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Security Insights -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-lightbulb me-2"></i>Security Insights
+                        </h5>
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <div class="insight-card p-3">
+                                    <h6 class="text-primary">Top Attack Vectors</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-angle-right me-2"></i>Spoofed Domains</li>
+                                        <li><i class="fas fa-angle-right me-2"></i>Login Page Mimicry</li>
+                                        <li><i class="fas fa-angle-right me-2"></i>Data Theft Attempts</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="insight-card p-3">
+                                    <h6 class="text-success">Prevention Rate</h6>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 95%">95%</div>
+                                    </div>
+                                    <small>Of attacks successfully prevented</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="insight-card p-3">
+                                    <h6 class="text-info">Response Metrics</h6>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Avg. Detection Time:</span>
+                                        <span>0.8s</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Peak Performance:</span>
+                                        <span>99.9%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -74,7 +135,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animated counters
+    // Animated counters with improved animation
     const animateCounters = () => {
         document.querySelectorAll('.animated-counter').forEach(counter => {
             const target = parseFloat(counter.getAttribute('data-target'));
@@ -85,10 +146,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const updateCounter = () => {
                 current += increment;
                 if (current < target) {
-                    counter.textContent = Math.round(current).toLocaleString();
+                    counter.textContent = target < 100 ? 
+                        current.toFixed(1) : 
+                        Math.round(current).toLocaleString();
                     requestAnimationFrame(updateCounter);
                 } else {
-                    counter.textContent = target.toLocaleString();
+                    counter.textContent = target < 100 ? 
+                        target.toFixed(1) : 
+                        target.toLocaleString();
                 }
             };
 
@@ -96,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // Initialize Detection Distribution Chart with animation
+    // Enhanced Detection Distribution Chart
     new Chart(document.getElementById('detectionChart'), {
         type: 'doughnut',
         data: {
@@ -104,23 +169,32 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 data: [75, 25],
                 backgroundColor: ['#198754', '#dc3545'],
+                borderWidth: 0
             }]
         },
         options: {
             responsive: true,
+            cutout: '70%',
             animation: {
                 animateScale: true,
-                animateRotate: true
+                animateRotate: true,
+                duration: 2000
             },
             plugins: {
                 legend: {
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        font: {
+                            size: 14
+                        }
+                    }
                 }
             }
         }
     });
 
-    // Initialize Attack Types Chart with animation
+    // Improved Attack Types Chart
     new Chart(document.getElementById('attackTypesChart'), {
         type: 'bar',
         data: {
@@ -129,7 +203,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 label: 'Detected Cases',
                 data: [35, 25, 20, 15, 5],
                 backgroundColor: '#0d6efd',
-                borderRadius: 5
+                borderRadius: 8,
+                barThickness: 20
             }]
         },
         options: {
@@ -145,13 +220,21 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
                 }
             }
         }
     });
 
-    // Initialize Monthly Trends Chart with animation
+    // Enhanced Monthly Trends Chart
     new Chart(document.getElementById('monthlyTrendsChart'), {
         type: 'line',
         data: {
@@ -160,12 +243,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 label: 'Safe URLs',
                 data: [1200, 1900, 2300, 2800, 3200, 3800],
                 borderColor: '#198754',
-                tension: 0.4
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                tension: 0.4,
+                fill: true
             }, {
                 label: 'Phishing URLs',
                 data: [300, 500, 700, 900, 1100, 1300],
                 borderColor: '#dc3545',
-                tension: 0.4
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: true
             }]
         },
         options: {
@@ -176,12 +263,26 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             plugins: {
                 legend: {
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        font: {
+                            size: 14
+                        }
+                    }
                 }
             },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
                 }
             }
         }

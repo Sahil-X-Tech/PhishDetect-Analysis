@@ -26,15 +26,24 @@ def extract_features(url):
     """Extract features from URL for model prediction"""
     parsed_url = urllib.parse.urlparse(url)
     extracted = tldextract.extract(url)
+    path_segments = [segment for segment in parsed_url.path.split('/') if segment]
 
     # Extract basic features
     features = {
         'url_length': len(url),
-        'has_suspicious_words': int(bool(re.search(r'login|account|secure|banking', url.lower()))),
+        'has_suspicious_words': int(bool(re.search(r'login|account|secure|banking|update|verify', url.lower()))),
         'uses_https': int(parsed_url.scheme == 'https'),
-        'has_suspicious_tld': int(extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml']),
+        'has_suspicious_tld': int(extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml', 'ga', 'cf', 'gq', 'nl']),
         'has_ip_address': int(bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain))),
         'has_multiple_subdomains': int(len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False),
+        'path_length': len(path_segments),
+        'has_port_number': int(bool(parsed_url.port)),
+        'has_fragment': int(bool(parsed_url.fragment)),
+        'has_query_params': int(bool(parsed_url.query)),
+        'domain_length': len(extracted.domain),
+        'has_special_chars': int(bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', url))),
+        'has_numeric_chars': int(bool(re.search(r'\d', extracted.domain))),
+        'subdomain_depth': len(extracted.subdomain.split('.')) if extracted.subdomain else 0
     }
 
     return features
@@ -81,8 +90,6 @@ def analyze_url():
             return jsonify({'error': 'Invalid URL format'}), 400
 
         logger.debug(f"Analyzing URL: {url}")
-
-        # Extract features and analyze
         features = extract_features(url)
 
         # Calculate risk score based on features
@@ -92,33 +99,42 @@ def analyze_url():
             'no_https': 0 if features['uses_https'] else 2,
             'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
             'ip_address': 3 if features['has_ip_address'] else 0,
-            'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0
+            'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0,
+            'special_chars': 1 if features['has_special_chars'] else 0,
+            'numeric_chars': 1 if features['has_numeric_chars'] else 0
         }
 
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 1])
+        max_score = sum(x for x in [1, 2, 2, 2, 3, 1, 1, 1])
         risk_score = sum(risk_factors.values()) / max_score
 
-        probability_safe = 1 - risk_score
-        probability_phishing = risk_score
-        is_safe = risk_score < 0.4
-
         response_data = {
-            'safe': is_safe,
-            'probability_safe': float(probability_safe),
-            'probability_phishing': float(probability_phishing),
+            'safe': risk_score < 0.4,
+            'probability_safe': float(1 - risk_score),
+            'probability_phishing': float(risk_score),
             'security_metrics': {
                 'HTTPS': bool(features['uses_https']),
                 'Domain Age': 'Unknown',  # Would require external API
-                'SSL Certificate': bool(features['uses_https'])
+                'SSL Certificate': bool(features['uses_https']),
+                'Port Security': not bool(features['has_port_number']),
+                'Protocol': 'Secure' if features['uses_https'] else 'Insecure'
             },
             'url_structure': {
                 'URL Length': features['url_length'],
+                'Domain Length': features['domain_length'],
+                'Path Depth': features['path_length'],
+                'Subdomain Levels': features['subdomain_depth'],
+                'Has Query Parameters': bool(features['has_query_params']),
+                'Has URL Fragment': bool(features['has_fragment']),
                 'Multiple Subdomains': bool(features['has_multiple_subdomains']),
                 'IP Address Used': bool(features['has_ip_address'])
             },
             'suspicious_patterns': {
                 'Suspicious Keywords': bool(features['has_suspicious_words']),
-                'Suspicious TLD': bool(features['has_suspicious_tld'])
+                'Suspicious TLD': bool(features['has_suspicious_tld']),
+                'Special Characters': bool(features['has_special_chars']),
+                'Numeric Characters': bool(features['has_numeric_chars']),
+                'Non-Standard Port': bool(features['has_port_number']),
+                'Excessive Subdomains': bool(features['has_multiple_subdomains'])
             }
         }
 
@@ -129,7 +145,6 @@ def analyze_url():
         logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
         return jsonify({'error': 'Error analyzing URL'}), 500
 
-# API endpoint for programmatic access
 @app.route('/api/v1/analyze', methods=['POST'])
 def api_analyze():
     """API endpoint for URL analysis"""
