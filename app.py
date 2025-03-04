@@ -1,6 +1,6 @@
 import logging
 import os
-from flask import Flask, render_template, request, jsonify, make_response
+from flask import Flask, render_template, request, jsonify
 import validators
 import urllib.parse
 import tldextract
@@ -8,6 +8,7 @@ import re
 import joblib
 import numpy as np
 from pathlib import Path
+import difflib
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -15,12 +16,16 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app
 app = Flask(__name__)
-
-# Configure app
 app.secret_key = os.environ.get("SESSION_SECRET")
 if not app.secret_key:
     logger.warning("SESSION_SECRET not set. Using fallback secret key for development.")
     app.secret_key = "dev-fallback-secret-please-set-proper-secret-in-production"
+
+# List of common legitimate domains for similarity checking
+LEGITIMATE_DOMAINS = [
+    'google.com', 'facebook.com', 'youtube.com', 'amazon.com', 'microsoft.com',
+    'apple.com', 'netflix.com', 'twitter.com', 'instagram.com', 'linkedin.com'
+]
 
 def extract_features(url):
     """Extract features from URL for model prediction"""
@@ -28,22 +33,37 @@ def extract_features(url):
     extracted = tldextract.extract(url)
     path_segments = [segment for segment in parsed_url.path.split('/') if segment]
 
+    # Check for domain similarity with legitimate domains
+    domain_with_suffix = f"{extracted.domain}.{extracted.suffix}"
+    similar_domains = []
+    for legitimate_domain in LEGITIMATE_DOMAINS:
+        similarity = difflib.SequenceMatcher(None, domain_with_suffix.lower(), legitimate_domain).ratio()
+        if similarity > 0.8 and domain_with_suffix.lower() != legitimate_domain:
+            similar_domains.append(legitimate_domain)
+
     # Extract basic features
     features = {
+        # URL Structure Features
         'url_length': len(url),
-        'has_suspicious_words': int(bool(re.search(r'login|account|secure|banking|update|verify', url.lower()))),
-        'uses_https': int(parsed_url.scheme == 'https'),
-        'has_suspicious_tld': int(extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml', 'ga', 'cf', 'gq', 'nl']),
-        'has_ip_address': int(bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain))),
-        'has_multiple_subdomains': int(len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False),
-        'path_length': len(path_segments),
-        'has_port_number': int(bool(parsed_url.port)),
-        'has_fragment': int(bool(parsed_url.fragment)),
-        'has_query_params': int(bool(parsed_url.query)),
         'domain_length': len(extracted.domain),
-        'has_special_chars': int(bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', url))),
-        'has_numeric_chars': int(bool(re.search(r'\d', extracted.domain))),
-        'subdomain_depth': len(extracted.subdomain.split('.')) if extracted.subdomain else 0
+        'path_length': len(path_segments),
+        'num_digits': sum(c.isdigit() for c in url),
+        'num_parameters': len(urllib.parse.parse_qs(parsed_url.query)),
+
+        # Security Features
+        'uses_https': parsed_url.scheme == 'https',
+        'has_port': bool(parsed_url.port),
+        'has_special_chars': bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', url)),
+
+        # Suspicious Patterns
+        'has_at_symbol': '@' in url,
+        'has_ip_address': bool(re.match(r'\d+\.\d+\.\d+\.\d+', extracted.domain)),
+        'is_misspelled_domain': len(similar_domains) > 0,
+        'has_multiple_subdomains': len(extracted.subdomain.split('.')) > 2 if extracted.subdomain else False,
+        'is_shortened_url': len(extracted.domain) <= 4 or any(short in extracted.domain for short in ['bit.ly', 'goo.gl', 't.co', 'tiny']),
+        'has_suspicious_tld': extracted.suffix in ['xyz', 'top', 'fit', 'tk', 'ml', 'ga', 'cf', 'gq', 'nl'],
+        'has_suspicious_keywords': bool(re.search(r'login|account|secure|banking|update|verify|signin|security', url.lower())),
+        'has_suspicious_patterns': bool(re.search(r'(auth|log[io]n|verify|secure|account|update|service|confirm)', url.lower()))
     }
 
     return features
@@ -52,6 +72,69 @@ def extract_features(url):
 def index():
     """Home page with URL analysis functionality"""
     return render_template('index.html')
+
+@app.route('/analyze', methods=['POST'])
+def analyze_url():
+    """Analyze URL for phishing indicators"""
+    try:
+        url = request.form.get('url')
+        if not url:
+            return jsonify({'error': 'No URL provided'}), 400
+
+        if not validators.url(url):
+            return jsonify({'error': 'Invalid URL format'}), 400
+
+        logger.debug(f"Analyzing URL: {url}")
+        features = extract_features(url)
+
+        # Calculate risk score based on weighted features
+        risk_factors = {
+            'url_length': 1 if features['url_length'] > 75 else 0,
+            'has_suspicious_keywords': 3 if features['has_suspicious_keywords'] else 0,
+            'no_https': 0 if features['uses_https'] else 2,
+            'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
+            'ip_address': 3 if features['has_ip_address'] else 0,
+            'multiple_subdomains': 2 if features['has_multiple_subdomains'] else 0,
+            'special_chars': 1 if features['has_special_chars'] else 0,
+            'at_symbol': 2 if features['has_at_symbol'] else 0,
+            'misspelled_domain': 3 if features['is_misspelled_domain'] else 0,
+            'shortened_url': 2 if features['is_shortened_url'] else 0,
+            'suspicious_patterns': 2 if features['has_suspicious_patterns'] else 0
+        }
+
+        max_score = sum(x for x in [1, 3, 2, 2, 3, 2, 1, 2, 3, 2, 2])
+        risk_score = sum(risk_factors.values()) / max_score
+
+        response_data = {
+            'safe': risk_score < 0.4,
+            'probability_safe': float(1 - risk_score),
+            'probability_phishing': float(risk_score),
+            'security_metrics': {
+                'HTTPS': features['uses_https'],
+                'Special Characters': features['has_special_chars'],
+                'Suspicious Keywords': features['has_suspicious_keywords'],
+                'Suspicious TLD': features['has_suspicious_tld']
+            },
+            'url_structure': {
+                'Domain Length': features['domain_length'],
+                'URL Length': features['url_length'],
+                'Path Length': features['path_length']
+            },
+            'suspicious_patterns': {
+                'At Symbol (@)': features['has_at_symbol'],
+                'IP Address': features['has_ip_address'],
+                'Misspelled Domain': features['is_misspelled_domain'],
+                'Multiple Subdomains': features['has_multiple_subdomains'],
+                'Shortened URL': features['is_shortened_url']
+            }
+        }
+
+        logger.debug(f"Response data: {response_data}")
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Error analyzing URL'}), 500
 
 @app.route('/about')
 def about():
@@ -78,73 +161,6 @@ def faq():
     """FAQ page with common questions"""
     return render_template('faq.html')
 
-@app.route('/analyze', methods=['POST'])
-def analyze_url():
-    """Analyze URL for phishing indicators"""
-    try:
-        url = request.form.get('url')
-        if not url:
-            return jsonify({'error': 'No URL provided'}), 400
-
-        if not validators.url(url):
-            return jsonify({'error': 'Invalid URL format'}), 400
-
-        logger.debug(f"Analyzing URL: {url}")
-        features = extract_features(url)
-
-        # Calculate risk score based on features
-        risk_factors = {
-            'length': 1 if features['url_length'] > 100 else 0,
-            'suspicious_words': 2 if features['has_suspicious_words'] else 0,
-            'no_https': 0 if features['uses_https'] else 2,
-            'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
-            'ip_address': 3 if features['has_ip_address'] else 0,
-            'multiple_subdomains': 1 if features['has_multiple_subdomains'] else 0,
-            'special_chars': 1 if features['has_special_chars'] else 0,
-            'numeric_chars': 1 if features['has_numeric_chars'] else 0
-        }
-
-        max_score = sum(x for x in [1, 2, 2, 2, 3, 1, 1, 1])
-        risk_score = sum(risk_factors.values()) / max_score
-
-        response_data = {
-            'safe': risk_score < 0.4,
-            'probability_safe': float(1 - risk_score),
-            'probability_phishing': float(risk_score),
-            'security_metrics': {
-                'HTTPS': bool(features['uses_https']),
-                'Domain Age': 'Unknown',  # Would require external API
-                'SSL Certificate': bool(features['uses_https']),
-                'Port Security': not bool(features['has_port_number']),
-                'Protocol': 'Secure' if features['uses_https'] else 'Insecure'
-            },
-            'url_structure': {
-                'URL Length': features['url_length'],
-                'Domain Length': features['domain_length'],
-                'Path Depth': features['path_length'],
-                'Subdomain Levels': features['subdomain_depth'],
-                'Has Query Parameters': bool(features['has_query_params']),
-                'Has URL Fragment': bool(features['has_fragment']),
-                'Multiple Subdomains': bool(features['has_multiple_subdomains']),
-                'IP Address Used': bool(features['has_ip_address'])
-            },
-            'suspicious_patterns': {
-                'Suspicious Keywords': bool(features['has_suspicious_words']),
-                'Suspicious TLD': bool(features['has_suspicious_tld']),
-                'Special Characters': bool(features['has_special_chars']),
-                'Numeric Characters': bool(features['has_numeric_chars']),
-                'Non-Standard Port': bool(features['has_port_number']),
-                'Excessive Subdomains': bool(features['has_multiple_subdomains'])
-            }
-        }
-
-        logger.debug(f"Response data: {response_data}")
-        return jsonify(response_data)
-
-    except Exception as e:
-        logger.error(f"Error analyzing URL: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Error analyzing URL'}), 500
-
 @app.route('/api/v1/analyze', methods=['POST'])
 def api_analyze():
     """API endpoint for URL analysis"""
@@ -164,7 +180,7 @@ def api_analyze():
         features = extract_features(url)
         risk_factors = {
             'length': 1 if features['url_length'] > 100 else 0,
-            'suspicious_words': 2 if features['has_suspicious_words'] else 0,
+            'suspicious_words': 2 if features['has_suspicious_keywords'] else 0,
             'no_https': 0 if features['uses_https'] else 2,
             'suspicious_tld': 2 if features['has_suspicious_tld'] else 0,
             'ip_address': 3 if features['has_ip_address'] else 0,
@@ -182,7 +198,7 @@ def api_analyze():
                 'features': features,
                 'security_metrics': {
                     'https_enabled': bool(features['uses_https']),
-                    'suspicious_patterns_detected': bool(features['has_suspicious_words']),
+                    'suspicious_patterns_detected': bool(features['has_suspicious_keywords']),
                     'suspicious_tld': bool(features['has_suspicious_tld']),
                     'uses_ip_address': bool(features['has_ip_address'])
                 }
