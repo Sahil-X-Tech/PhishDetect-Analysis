@@ -46,10 +46,10 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,  # Test connections before using
     "connect_args": {
         "connect_timeout": 10,  # Increase connection timeout
-        "keepalives": 1,        # Enable keepalives
+        "keepalives": 1,  # Enable keepalives
         "keepalives_idle": 30,  # Idle time before sending keepalives
         "keepalives_interval": 10,  # Interval between keepalives
-        "keepalives_count": 5   # Number of keepalives before closing
+        "keepalives_count": 5  # Number of keepalives before closing
     }
 }
 
